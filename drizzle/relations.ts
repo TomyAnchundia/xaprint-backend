@@ -1,4 +1,4 @@
-import { relations } from 'drizzle-orm/relations';
+import { relations } from 'drizzle-orm';
 import { clientes, pedidos } from './schema';
 
 export const pedidosRelations = relations(pedidos, ({ one }) => ({

@@ -1,13 +1,17 @@
 import 'dotenv/config';
 
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
+import { createClient } from '@libsql/client';
+import { drizzle } from 'drizzle-orm/libsql';
 import { and, eq } from 'drizzle-orm';
 
 import { tarifas } from './schema';
 
-const sqlite = new Database(process.env.DATABASE_URL!);
-const db = drizzle(sqlite);
+const client = createClient({
+  url: process.env.TURSO_DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN!,
+});
+
+const db = drizzle(client);
 
 const tarifasIniciales = [
   // TEXTIL31
@@ -138,11 +142,7 @@ async function main() {
   console.log('Seed de tarifas finalizado.');
 }
 
-main()
-  .catch((error) => {
-    console.error('Error ejecutando seed:', error);
-    process.exit(1);
-  })
-  .finally(() => {
-    sqlite.close();
-  });
+main().catch((error) => {
+  console.error('Error ejecutando seed:', error);
+  process.exit(1);
+});
