@@ -1,0 +1,1 @@
+ALTER TABLE `pedidos` ADD `costo_diseno` real DEFAULT 0 NOT NULL;

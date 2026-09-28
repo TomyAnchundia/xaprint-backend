@@ -1,0 +1,800 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "a1c9710c-6985-4b95-bf9b-d371d823c05f",
+  "prevIds": [
+    "00000000-0000-0000-0000-000000000000"
+  ],
+  "ddl": [
+    {
+      "name": "clientes",
+      "entityType": "tables"
+    },
+    {
+      "name": "historial_pedidos",
+      "entityType": "tables"
+    },
+    {
+      "name": "pagos",
+      "entityType": "tables"
+    },
+    {
+      "name": "pagos_pedidos",
+      "entityType": "tables"
+    },
+    {
+      "name": "pedidos",
+      "entityType": "tables"
+    },
+    {
+      "name": "tarifas",
+      "entityType": "tables"
+    },
+    {
+      "name": "usuarios",
+      "entityType": "tables"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "clientes"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "nombre",
+      "entityType": "columns",
+      "table": "clientes"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "telefono",
+      "entityType": "columns",
+      "table": "clientes"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "historial_pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "pedido_id",
+      "entityType": "columns",
+      "table": "historial_pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "usuario_id",
+      "entityType": "columns",
+      "table": "historial_pedidos"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "estado_anterior",
+      "entityType": "columns",
+      "table": "historial_pedidos"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "estado_nuevo",
+      "entityType": "columns",
+      "table": "historial_pedidos"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "estado_pago_anterior",
+      "entityType": "columns",
+      "table": "historial_pedidos"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "estado_pago_nuevo",
+      "entityType": "columns",
+      "table": "historial_pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "historial_pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "pagos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cliente_id",
+      "entityType": "columns",
+      "table": "pagos"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "monto",
+      "entityType": "columns",
+      "table": "pagos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "usuario_id",
+      "entityType": "columns",
+      "table": "pagos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "pagos"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "pagos_pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "pago_id",
+      "entityType": "columns",
+      "table": "pagos_pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "pedido_id",
+      "entityType": "columns",
+      "table": "pagos_pedidos"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "monto",
+      "entityType": "columns",
+      "table": "pagos_pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cliente_id",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'REVISION'",
+      "generated": null,
+      "name": "estado",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'NO_PAGADO'",
+      "generated": null,
+      "name": "estado_pago",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "prioridad",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "servicio",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ancho",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "largo",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "precio_calculado",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "precio_especial",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "aporte_desarrollador",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "valor_cobrar",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "costo_diseno",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "precio_especial_usuario_id",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "precio_especial_fecha",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "contraer",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "velocidad",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "obturacion",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "observaciones",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "fecha_entrega",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "tarifas"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "servicio",
+      "entityType": "columns",
+      "table": "tarifas"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ancho",
+      "entityType": "columns",
+      "table": "tarifas"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "desde",
+      "entityType": "columns",
+      "table": "tarifas"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "hasta",
+      "entityType": "columns",
+      "table": "tarifas"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "precio",
+      "entityType": "columns",
+      "table": "tarifas"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "true",
+      "generated": null,
+      "name": "activo",
+      "entityType": "columns",
+      "table": "tarifas"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "tarifas"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "tarifas"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "usuarios"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "username",
+      "entityType": "columns",
+      "table": "usuarios"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "password",
+      "entityType": "columns",
+      "table": "usuarios"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "'EMPLEADO'",
+      "generated": null,
+      "name": "rol",
+      "entityType": "columns",
+      "table": "usuarios"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "'TEXTIL31'",
+      "generated": null,
+      "name": "area",
+      "entityType": "columns",
+      "table": "usuarios"
+    },
+    {
+      "columns": [
+        "pedido_id"
+      ],
+      "tableTo": "pedidos",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_historial_pedidos_pedido_id_pedidos_id_fk",
+      "entityType": "fks",
+      "table": "historial_pedidos"
+    },
+    {
+      "columns": [
+        "usuario_id"
+      ],
+      "tableTo": "usuarios",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_historial_pedidos_usuario_id_usuarios_id_fk",
+      "entityType": "fks",
+      "table": "historial_pedidos"
+    },
+    {
+      "columns": [
+        "cliente_id"
+      ],
+      "tableTo": "clientes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_pagos_cliente_id_clientes_id_fk",
+      "entityType": "fks",
+      "table": "pagos"
+    },
+    {
+      "columns": [
+        "usuario_id"
+      ],
+      "tableTo": "usuarios",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_pagos_usuario_id_usuarios_id_fk",
+      "entityType": "fks",
+      "table": "pagos"
+    },
+    {
+      "columns": [
+        "pago_id"
+      ],
+      "tableTo": "pagos",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_pagos_pedidos_pago_id_pagos_id_fk",
+      "entityType": "fks",
+      "table": "pagos_pedidos"
+    },
+    {
+      "columns": [
+        "pedido_id"
+      ],
+      "tableTo": "pedidos",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_pagos_pedidos_pedido_id_pedidos_id_fk",
+      "entityType": "fks",
+      "table": "pagos_pedidos"
+    },
+    {
+      "columns": [
+        "cliente_id"
+      ],
+      "tableTo": "clientes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_pedidos_cliente_id_clientes_id_fk",
+      "entityType": "fks",
+      "table": "pedidos"
+    },
+    {
+      "columns": [
+        "precio_especial_usuario_id"
+      ],
+      "tableTo": "usuarios",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_pedidos_precio_especial_usuario_id_usuarios_id_fk",
+      "entityType": "fks",
+      "table": "pedidos"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "clientes_pk",
+      "table": "clientes",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "historial_pedidos_pk",
+      "table": "historial_pedidos",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "pagos_pk",
+      "table": "pagos",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "pagos_pedidos_pk",
+      "table": "pagos_pedidos",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "pedidos_pk",
+      "table": "pedidos",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "tarifas_pk",
+      "table": "tarifas",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "usuarios_pk",
+      "table": "usuarios",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "telefono"
+      ],
+      "nameExplicit": false,
+      "name": "clientes_telefono_unique",
+      "entityType": "uniques",
+      "table": "clientes"
+    },
+    {
+      "columns": [
+        "username"
+      ],
+      "nameExplicit": false,
+      "name": "usuarios_username_unique",
+      "entityType": "uniques",
+      "table": "usuarios"
+    }
+  ],
+  "renames": []
+}
