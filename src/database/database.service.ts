@@ -1,4 +1,5 @@
 import 'dotenv/config';
+
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { createClient } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
@@ -14,7 +15,9 @@ export class DatabaseService implements OnModuleInit {
       authToken: process.env.TURSO_AUTH_TOKEN!,
     });
 
-    this.db = drizzle(this.client);
+    this.db = drizzle({
+      client: this.client,
+    });
   }
 
   async onModuleInit() {
