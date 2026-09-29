@@ -24,19 +24,21 @@ export class PagosService {
   constructor(private readonly database: DatabaseService) {}
 
   registrarPagoPedido(usuarioId: number, pedidoId: number) {
-    return this.database.db.transaction((tx) => {
-      const pedido = tx
-        .select({
-          id: pedidos.id,
-          clienteId: pedidos.clienteId,
-          estado: pedidos.estado,
-          estadoPago: pedidos.estadoPago,
-          valorCobrar: pedidos.valorCobrar,
-        })
-        .from(pedidos)
-        .where(eq(pedidos.id, pedidoId))
-        .limit(1)
-        .all()[0];
+    return this.database.db.transaction(async (tx) => {
+      const pedido = (
+        await tx
+          .select({
+            id: pedidos.id,
+            clienteId: pedidos.clienteId,
+            estado: pedidos.estado,
+            estadoPago: pedidos.estadoPago,
+            valorCobrar: pedidos.valorCobrar,
+          })
+          .from(pedidos)
+          .where(eq(pedidos.id, pedidoId))
+          .limit(1)
+          .all()
+      )[0];
 
       if (!pedido) {
         throw new NotFoundException('Pedido no encontrado');
@@ -47,7 +49,7 @@ export class PagosService {
         );
       }
 
-      const [resumen] = tx
+      const [resumen] = await tx
         .select({
           pagado: sql<number>`COALESCE(SUM(${pagosPedidos.monto}), 0)`,
         })
@@ -63,26 +65,31 @@ export class PagosService {
         throw new BadRequestException('El pedido ya está pagado');
       }
 
-      const pago = tx
-        .insert(pagos)
-        .values({
-          clienteId: pedido.clienteId,
-          monto: pendiente,
-          usuarioId,
-        })
-        .returning({ id: pagos.id })
-        .all()[0];
+      const pago = (
+        await tx
+          .insert(pagos)
+          .values({
+            clienteId: pedido.clienteId,
+            monto: pendiente,
+            usuarioId,
+          })
+          .returning({ id: pagos.id })
+          .all()
+      )[0];
 
-      tx.insert(pagosPedidos)
+      await tx
+        .insert(pagosPedidos)
         .values({ pagoId: pago.id, pedidoId, monto: pendiente })
         .run();
 
-      tx.update(pedidos)
+      await tx
+        .update(pedidos)
         .set({ estadoPago: 'PAGADO', updatedAt: new Date() })
         .where(eq(pedidos.id, pedidoId))
         .run();
 
-      tx.insert(historialPedidos)
+      await tx
+        .insert(historialPedidos)
         .values({
           pedidoId,
           usuarioId,
@@ -103,40 +110,44 @@ export class PagosService {
   }
 
   revertirUltimoPagoPedido(usuarioId: number, pedidoId: number) {
-    return this.database.db.transaction((tx) => {
-      const pedido = tx
-        .select({
-          id: pedidos.id,
-          estadoPago: pedidos.estadoPago,
-          valorCobrar: pedidos.valorCobrar,
-        })
-        .from(pedidos)
-        .where(eq(pedidos.id, pedidoId))
-        .limit(1)
-        .all()[0];
+    return this.database.db.transaction(async (tx) => {
+      const pedido = (
+        await tx
+          .select({
+            id: pedidos.id,
+            estadoPago: pedidos.estadoPago,
+            valorCobrar: pedidos.valorCobrar,
+          })
+          .from(pedidos)
+          .where(eq(pedidos.id, pedidoId))
+          .limit(1)
+          .all()
+      )[0];
 
       if (!pedido) {
         throw new NotFoundException('Pedido no encontrado');
       }
 
-      const ultimoPago = tx
-        .select({
-          pagoId: pagos.id,
-          montoPago: pagos.monto,
-          montoAplicado: pagosPedidos.monto,
-        })
-        .from(pagosPedidos)
-        .innerJoin(pagos, eq(pagosPedidos.pagoId, pagos.id))
-        .where(eq(pagosPedidos.pedidoId, pedidoId))
-        .orderBy(desc(pagos.createdAt), desc(pagos.id))
-        .limit(1)
-        .all()[0];
+      const ultimoPago = (
+        await tx
+          .select({
+            pagoId: pagos.id,
+            montoPago: pagos.monto,
+            montoAplicado: pagosPedidos.monto,
+          })
+          .from(pagosPedidos)
+          .innerJoin(pagos, eq(pagosPedidos.pagoId, pagos.id))
+          .where(eq(pagosPedidos.pedidoId, pedidoId))
+          .orderBy(desc(pagos.createdAt), desc(pagos.id))
+          .limit(1)
+          .all()
+      )[0];
 
       if (!ultimoPago) {
         throw new BadRequestException('No hay un pago que se pueda revertir');
       }
 
-      const aplicacionesPago = tx
+      const aplicacionesPago = await tx
         .select({ pedidoId: pagosPedidos.pedidoId })
         .from(pagosPedidos)
         .where(eq(pagosPedidos.pagoId, ultimoPago.pagoId))
@@ -152,12 +163,13 @@ export class PagosService {
         );
       }
 
-      tx.delete(pagosPedidos)
+      await tx
+        .delete(pagosPedidos)
         .where(eq(pagosPedidos.pagoId, ultimoPago.pagoId))
         .run();
-      tx.delete(pagos).where(eq(pagos.id, ultimoPago.pagoId)).run();
+      await tx.delete(pagos).where(eq(pagos.id, ultimoPago.pagoId)).run();
 
-      const [resumen] = tx
+      const [resumen] = await tx
         .select({
           pagado: sql<number>`COALESCE(SUM(${pagosPedidos.monto}), 0)`,
         })
@@ -174,12 +186,14 @@ export class PagosService {
             ? 'PARCIALMENTE_PAGADO'
             : 'NO_PAGADO';
 
-      tx.update(pedidos)
+      await tx
+        .update(pedidos)
         .set({ estadoPago: estadoPagoNuevo, updatedAt: new Date() })
         .where(eq(pedidos.id, pedidoId))
         .run();
 
-      tx.insert(historialPedidos)
+      await tx
+        .insert(historialPedidos)
         .values({
           pedidoId,
           usuarioId,
@@ -429,8 +443,8 @@ export class PagosService {
   }
 
   async registrarPago(usuarioId: number, dto: CrearPagoDto) {
-    const resultado = this.database.db.transaction((tx) => {
-      const cliente = tx
+    const resultado = await this.database.db.transaction(async (tx) => {
+      const cliente = await tx
         .select({
           id: clientes.id,
           nombre: clientes.nombre,
@@ -452,7 +466,7 @@ export class PagosService {
        * No mezclamos historialPedidos aquí
        * para evitar duplicar los SUM().
        */
-      const pedidosCliente = tx
+      const pedidosCliente = await tx
         .select({
           id: pedidos.id,
           valorCobrar: pedidos.valorCobrar,
@@ -482,7 +496,7 @@ export class PagosService {
        * Usamos el timestamp directamente,
        * sin convertirlo a Date.
        */
-      const fechasEntrega = tx
+      const fechasEntrega = await tx
         .select({
           pedidoId: historialPedidos.pedidoId,
 
@@ -572,7 +586,7 @@ export class PagosService {
         );
       }
 
-      const pago = tx
+      const pago = await tx
         .insert(pagos)
         .values({
           clienteId: dto.clienteId,
@@ -602,7 +616,8 @@ export class PagosService {
          * Relacionamos el pago
          * con el pedido.
          */
-        tx.insert(pagosPedidos)
+        await tx
+          .insert(pagosPedidos)
           .values({
             pagoId: pago[0].id,
             pedidoId: pedido.id,
@@ -625,7 +640,8 @@ export class PagosService {
         const estadoPagoAnterior =
           pedido.pagado <= 0 ? 'NO_PAGADO' : 'PARCIALMENTE_PAGADO';
 
-        tx.update(pedidos)
+        await tx
+          .update(pedidos)
           .set({
             estadoPago: nuevoEstadoPago,
             updatedAt: new Date(),
@@ -637,7 +653,8 @@ export class PagosService {
          * Guardamos el cambio
          * en el historial.
          */
-        tx.insert(historialPedidos)
+        await tx
+          .insert(historialPedidos)
           .values({
             pedidoId: pedido.id,
             usuarioId,
