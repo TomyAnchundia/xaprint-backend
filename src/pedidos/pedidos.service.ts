@@ -8,6 +8,7 @@ import { DatabaseService } from '../database/database.service';
 import {
   clientes,
   historialPedidos,
+  pagosPedidos,
   pedidos,
   usuarios,
 } from '../database/schema';
@@ -392,10 +393,28 @@ export class PedidosService {
       .orderBy(historialPedidos.createdAt);
   }
   async eliminar(id: number) {
-    const resultado = await this.database.db
-      .delete(pedidos)
-      .where(eq(pedidos.id, id))
-      .returning();
+    const resultado = await this.database.db.transaction(async (tx) => {
+      const pagosRegistrados = await tx
+        .select({ id: pagosPedidos.id })
+        .from(pagosPedidos)
+        .where(eq(pagosPedidos.pedidoId, id))
+        .limit(1)
+        .all();
+
+      if (pagosRegistrados.length > 0) {
+        throw new BadRequestException(
+          'No se puede eliminar un pedido que tiene pagos registrados',
+        );
+      }
+
+      await tx
+        .delete(historialPedidos)
+        .where(eq(historialPedidos.pedidoId, id))
+        .run();
+
+      return tx.delete(pedidos).where(eq(pedidos.id, id)).returning().all();
+    });
+
     if (!resultado[0]) {
       throw new NotFoundException('Pedido no encontrado');
     }
@@ -446,51 +465,11 @@ export class PedidosService {
     precioEspecial: number | null,
     costoDiseno: number = 0,
   ) {
-    const costo = costoDiseno ?? 0;
-    /* * Si todavía no existe precio de impresión, * el valor a cobrar corresponde únicamente * al costo del diseño. */ if (
-      precioCalculado === null
-    ) {
-      return {
-        aporteDesarrollador: 0,
-        valorCobrar: costo > 0 ? this.redondear(costo) : null,
-      };
-    }
-    /* * REGLA 1: * * Todo precio especial genera $0.05 * de aporte del desarrollador. * * El costo del diseño NO participa * en este aporte. */ if (
-      precioEspecial !== null
-    ) {
-      return {
-        aporteDesarrollador: 0.05,
-        valorCobrar: this.redondear(precioEspecial + costo),
-      };
-    }
-    /* * REGLA 2: * * TEXTIL 58 menor a 3 metros: * no existe aporte si no hay precio especial. */ if (
-      servicio === 'TEXTIL' &&
-      ancho === 58 &&
-      largoCm < 300
-    ) {
-      return {
-        aporteDesarrollador: 0,
-        valorCobrar: this.redondear(precioCalculado + costo),
-      };
-    }
-    /* * REGLA 3: * * TEXTIL 31 y TEXTIL 58 desde 3 metros: * subir al siguiente múltiplo de $0.05. * * El aporte es únicamente la diferencia. * * Ejemplo: * * 40.81 -> 40.85 = 0.04 * 40.93 -> 40.95 = 0.02 */ if (
-      servicio === 'TEXTIL'
-    ) {
-      const valorRedondeado =
-        Math.ceil((precioCalculado - 0.000001) / 0.05) * 0.05;
-      const valorRedondeadoFinal = this.redondear(valorRedondeado);
-      const aporteDesarrollador = this.redondear(
-        valorRedondeadoFinal - precioCalculado,
-      );
-      return {
-        aporteDesarrollador,
-        valorCobrar: this.redondear(valorRedondeadoFinal + costo),
-      };
-    }
-    /* * REGLA 4: * * Para UV no existe aporte sin precio especial. * * El costo del diseño se suma al precio * de impresión. */ return {
-      aporteDesarrollador: 0,
-      valorCobrar: this.redondear(precioCalculado + costo),
-    };
+    return this.preciosService.calcularCotizacionDesdePrecio(
+      precioCalculado,
+      precioEspecial,
+      costoDiseno,
+    );
   }
   private redondear(valor: number): number {
     return Math.round((valor + Number.EPSILON) * 100) / 100;

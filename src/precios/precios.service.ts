@@ -39,6 +39,61 @@ export class PreciosService {
   ) {
     const precioCalculado = await this.calcularPrecio(servicio, ancho, largoCm);
 
+    return this.calcularCotizacionDesdePrecio(
+      precioCalculado,
+      null,
+      costoDiseno,
+    );
+  }
+
+  calcularCotizacionDesdePrecio(
+    precioCalculado: number | null,
+    precioEspecial: number | null = null,
+    costoDiseno = 0,
+  ) {
+    if (precioCalculado === null) {
+      return {
+        precioCalculado: null,
+        costoDiseno: this.redondear(costoDiseno),
+        aporteDesarrollador: 0,
+        valorCobrar: costoDiseno > 0 ? this.redondear(costoDiseno) : null,
+      };
+    }
+
+    if (precioEspecial !== null) {
+      if (!Number.isFinite(costoDiseno) || costoDiseno < 0) {
+        throw new BadRequestException(
+          'El costo de diseño debe ser mayor o igual a 0',
+        );
+      }
+      return {
+        precioCalculado,
+        costoDiseno: this.redondear(costoDiseno),
+        aporteDesarrollador: 0.05,
+        valorCobrar: this.redondear(precioEspecial + costoDiseno),
+      };
+    }
+
+    return this.crearCotizacion(precioCalculado, costoDiseno);
+  }
+
+  async calcularCotizacionTarifa(tarifaId: number, largoCm: number) {
+    this.validarLargo(largoCm);
+    const tarifa = await this.tarifasService.obtenerPorId(tarifaId);
+    if (
+      largoCm < tarifa.desde ||
+      (tarifa.hasta !== null && largoCm >= tarifa.hasta)
+    ) {
+      throw new BadRequestException(
+        'El largo está fuera del rango de esta tarifa',
+      );
+    }
+
+    const precioCalculado = this.redondear((largoCm / 100) * tarifa.precio);
+    return this.crearCotizacion(precioCalculado);
+  }
+
+  private crearCotizacion(precioCalculado: number, costoDiseno = 0) {
     if (!Number.isFinite(costoDiseno) || costoDiseno < 0) {
       throw new BadRequestException(
         'El costo de diseño debe ser mayor o igual a 0',
@@ -47,40 +102,12 @@ export class PreciosService {
 
     const costoDisenoRedondeado = this.redondear(costoDiseno);
 
-    let aporteDesarrollador = 0;
-    let valorCobrar = precioCalculado + costoDisenoRedondeado;
-
-    /*
-     * TEXTIL 58 cm:
-     * desde 300 cm no aplica aporte/redondeo.
-     */
-    if (servicio === 'TEXTIL' && ancho === 58 && largoCm >= 300) {
-      valorCobrar = this.redondear(valorCobrar);
-    }
-
-    /*
-     * TEXTIL 31 cm y TEXTIL 58 cm
-     * por debajo de 300 cm:
-     *
-     * El valor de impresión se redondea
-     * hacia arriba al siguiente múltiplo de $0.05.
-     */
-    else if (servicio === 'TEXTIL') {
-      const valorRedondeado =
-        this.redondearHaciaArribaCincoCentavos(precioCalculado);
-
-      aporteDesarrollador = this.redondear(valorRedondeado - precioCalculado);
-
-      valorCobrar = this.redondear(valorRedondeado + costoDisenoRedondeado);
-    }
-
-    /*
-     * UV:
-     * no genera aporte del desarrollador.
-     */
-    else if (servicio === 'UV') {
-      valorCobrar = this.redondear(precioCalculado + costoDisenoRedondeado);
-    }
+    const valorRedondeado =
+      this.redondearHaciaArribaCincoCentavos(precioCalculado);
+    const aporteDesarrollador = this.redondear(
+      valorRedondeado - precioCalculado,
+    );
+    const valorCobrar = this.redondear(valorRedondeado + costoDisenoRedondeado);
 
     return {
       precioCalculado,

@@ -15,6 +15,8 @@ import {
 import { Request } from 'express';
 
 import { JwtAuthGuard } from '../auth/jwt-auth/jwt-auth.guard';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 
 import { ActualizarPedidoDto } from './dto/actualizar-pedido.dto';
 import { CambiarEstadoPedidoDto } from './dto/cambiar-estado-pedido.dto';
@@ -32,7 +34,7 @@ interface RequestConUsuario extends Request {
 }
 
 @Controller('pedidos')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class PedidosController {
   constructor(private readonly pedidosService: PedidosService) {}
 
@@ -116,6 +118,7 @@ export class PedidosController {
   }
 
   @Delete(':id')
+  @Roles('ADMIN')
   async eliminar(
     @Param('id', ParseIntPipe) id: number,
     @Req() request: RequestConUsuario,

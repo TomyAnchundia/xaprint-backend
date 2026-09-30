@@ -18,6 +18,7 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { PedidosGateway } from '../pedidos/pedidos.gateway';
 
+import { CrearPagoDesarrolladorDto } from './dto/crear-pago-desarrollador.dto';
 import { CrearPagoDto } from './dto/crear-pago-dto';
 import { PagosService } from './pagos.service';
 
@@ -48,6 +49,38 @@ export class PagosController {
   @Roles('ADMIN')
   obtenerResumen(@Query('fecha') fecha: string) {
     return this.pagosService.obtenerResumen(fecha);
+  }
+
+  @Get('resumen-periodo')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  obtenerResumenPeriodo(
+    @Query('desde') desde: string,
+    @Query('hasta') hasta: string,
+  ) {
+    return this.pagosService.obtenerResumenPeriodo(desde, hasta);
+  }
+
+  @Get('desarrollador')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  obtenerResumenDesarrollador(@Query('periodo') periodo: string) {
+    return this.pagosService.obtenerResumenDesarrollador(periodo);
+  }
+
+  @Post('desarrollador')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  async registrarPagoDesarrollador(
+    @Body() dto: CrearPagoDesarrolladorDto,
+    @Request() req: RequestConUsuario,
+  ) {
+    const resultado = await this.pagosService.registrarPagoDesarrollador(
+      req.user.id,
+      dto,
+    );
+    this.pedidosGateway.emitirFinanzasActualizadas();
+    return resultado;
   }
 
   @Get('deudas')

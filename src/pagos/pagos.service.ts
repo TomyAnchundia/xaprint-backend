@@ -12,6 +12,7 @@ import {
   clientes,
   historialPedidos,
   pagos,
+  pagosDesarrollador,
   pagosPedidos,
   pedidos,
   usuarios,
@@ -22,6 +23,122 @@ import { CrearPagoDto } from './dto/crear-pago-dto';
 @Injectable()
 export class PagosService {
   constructor(private readonly database: DatabaseService) {}
+
+  async obtenerResumenDesarrollador(periodo: string) {
+    this.validarPeriodo(periodo);
+    const aporteDevengado = await this.calcularAporteDevengado(periodo);
+    const pagosRegistrados = await this.database.db
+      .select({
+        id: pagosDesarrollador.id,
+        monto: pagosDesarrollador.monto,
+        fecha: pagosDesarrollador.createdAt,
+        usuario: {
+          id: usuarios.id,
+          username: usuarios.username,
+        },
+      })
+      .from(pagosDesarrollador)
+      .innerJoin(usuarios, eq(pagosDesarrollador.usuarioId, usuarios.id))
+      .where(eq(pagosDesarrollador.periodo, periodo))
+      .orderBy(desc(pagosDesarrollador.createdAt), desc(pagosDesarrollador.id));
+
+    const totalPagado = Number(
+      pagosRegistrados
+        .reduce((total, pago) => total + pago.monto, 0)
+        .toFixed(2),
+    );
+
+    return {
+      periodo,
+      aporteDevengado,
+      totalPagado,
+      pendiente: Number(Math.max(aporteDevengado - totalPagado, 0).toFixed(2)),
+      pagos: pagosRegistrados,
+    };
+  }
+
+  async registrarPagoDesarrollador(
+    usuarioId: number,
+    datos: { periodo: string; monto: number },
+  ) {
+    this.validarPeriodo(datos.periodo);
+    const aporteDevengado = await this.calcularAporteDevengado(datos.periodo);
+    const monto = Number(datos.monto.toFixed(2));
+
+    if (monto <= 0) {
+      throw new BadRequestException('El abono debe ser mayor a 0');
+    }
+
+    const pago = await this.database.db.transaction(async (tx) => {
+      const [resumen] = await tx
+        .select({
+          total: sql<number>`COALESCE(SUM(${pagosDesarrollador.monto}), 0)`,
+        })
+        .from(pagosDesarrollador)
+        .where(eq(pagosDesarrollador.periodo, datos.periodo))
+        .all();
+
+      const totalPagado = Number(resumen?.total ?? 0);
+      const pendiente = Number(
+        Math.max(aporteDevengado - totalPagado, 0).toFixed(2),
+      );
+
+      if (monto > pendiente) {
+        throw new BadRequestException(
+          `El abono no puede superar el saldo de $${pendiente.toFixed(2)}`,
+        );
+      }
+
+      const [registro] = await tx
+        .insert(pagosDesarrollador)
+        .values({ periodo: datos.periodo, monto, usuarioId })
+        .returning({ id: pagosDesarrollador.id })
+        .all();
+
+      return registro;
+    });
+
+    return { pagoId: pago.id, periodo: datos.periodo, monto };
+  }
+
+  private async calcularAporteDevengado(periodo: string) {
+    const pedidosConAporte = await this.database.db
+      .select({
+        aporteDesarrollador: pedidos.aporteDesarrollador,
+        valorCobrar: pedidos.valorCobrar,
+        pagado: sql<number>`COALESCE(SUM(${pagosPedidos.monto}), 0)`,
+        periodoPago: sql<
+          string | null
+        >`strftime('%Y-%m', MAX(${pagos.createdAt}), 'unixepoch', '-5 hours')`,
+      })
+      .from(pedidos)
+      .leftJoin(pagosPedidos, eq(pedidos.id, pagosPedidos.pedidoId))
+      .leftJoin(pagos, eq(pagosPedidos.pagoId, pagos.id))
+      .groupBy(pedidos.id, pedidos.aporteDesarrollador, pedidos.valorCobrar);
+
+    const total = pedidosConAporte.reduce((acumulado, pedido) => {
+      const valorCobrar = Number(pedido.valorCobrar ?? 0);
+      const pagado = Number(pedido.pagado ?? 0);
+
+      if (
+        pedido.periodoPago !== periodo ||
+        valorCobrar <= 0 ||
+        pagado < valorCobrar
+      ) {
+        return acumulado;
+      }
+
+      return acumulado + Number(pedido.aporteDesarrollador ?? 0);
+    }, 0);
+
+    return Number(total.toFixed(2));
+  }
+
+  private validarPeriodo(periodo: string) {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(periodo)) {
+      throw new BadRequestException('El período debe tener formato YYYY-MM');
+    }
+  }
 
   registrarPagoPedido(usuarioId: number, pedidoId: number) {
     return this.database.db.transaction(async (tx) => {
@@ -356,6 +473,71 @@ export class PagosService {
       aporteDesarrolladorAcumulado: Number(
         aporteDesarrolladorAcumulado.toFixed(2),
       ),
+    };
+  }
+
+  async obtenerResumenPeriodo(desde: string, hasta: string) {
+    const { inicio } = this.obtenerRangoDia(desde);
+    const { fin } = this.obtenerRangoDia(hasta);
+    if (inicio >= fin) {
+      throw new BadRequestException('El inicio no puede ser posterior al fin');
+    }
+
+    const [cobros] = await this.database.db
+      .select({
+        total: sql<number>`COALESCE(SUM(${pagos.monto}), 0)`,
+      })
+      .from(pagos)
+      .where(and(gte(pagos.createdAt, inicio), lt(pagos.createdAt, fin)));
+
+    const entregas = await this.database.db
+      .select({
+        pedidoId: historialPedidos.pedidoId,
+        fecha: sql<
+          number | null
+        >`MAX(CASE WHEN ${historialPedidos.estadoNuevo} = 'ENTREGADO' THEN ${historialPedidos.createdAt} END)`,
+      })
+      .from(historialPedidos)
+      .groupBy(historialPedidos.pedidoId);
+
+    const fechasEntrega = new Map(
+      entregas.map((entrega) => [entrega.pedidoId, entrega.fecha]),
+    );
+    const pedidosEntregados = await this.database.db
+      .select({
+        id: pedidos.id,
+        total: pedidos.valorCobrar,
+        pagado: sql<number>`COALESCE(SUM(${pagosPedidos.monto}), 0)`,
+      })
+      .from(pedidos)
+      .leftJoin(pagosPedidos, eq(pedidos.id, pagosPedidos.pedidoId))
+      .where(eq(pedidos.estado, 'ENTREGADO'))
+      .groupBy(pedidos.id, pedidos.valorCobrar);
+
+    const inicioSegundos = inicio.getTime() / 1000;
+    const finSegundos = fin.getTime() / 1000;
+    const saldos = pedidosEntregados
+      .filter((pedido) => {
+        const fechaEntrega = fechasEntrega.get(pedido.id);
+        return (
+          fechaEntrega !== null &&
+          fechaEntrega !== undefined &&
+          fechaEntrega >= inicioSegundos &&
+          fechaEntrega < finSegundos
+        );
+      })
+      .map((pedido) =>
+        Math.max((pedido.total ?? 0) - Number(pedido.pagado ?? 0), 0),
+      );
+
+    return {
+      desde,
+      hasta,
+      cobrado: Number(Number(cobros?.total ?? 0).toFixed(2)),
+      porCobrar: Number(
+        saldos.reduce((total, saldo) => total + saldo, 0).toFixed(2),
+      ),
+      pedidosPorCobrar: saldos.filter((saldo) => saldo > 0).length,
     };
   }
 

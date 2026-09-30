@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { and, eq, gte, lt } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 
 import { DatabaseService } from '../database/database.service';
 import { historialPedidos, pedidos } from '../database/schema';
@@ -22,6 +22,7 @@ export class ProduccionService {
     const resultados = await this.database.db
       .select({
         pedidoId: pedidos.id,
+        fechaProduccion: historialPedidos.createdAt,
         servicio: pedidos.servicio,
         ancho: pedidos.ancho,
         largo: pedidos.largo,
@@ -30,19 +31,23 @@ export class ProduccionService {
       })
       .from(historialPedidos)
       .innerJoin(pedidos, eq(historialPedidos.pedidoId, pedidos.id))
-      .where(
-        and(
-          eq(historialPedidos.estadoNuevo, 'LISTO'),
-          gte(historialPedidos.createdAt, inicio),
-          lt(historialPedidos.createdAt, fin),
-        ),
-      );
+      .where(eq(historialPedidos.estadoNuevo, 'LISTO'))
+      .orderBy(asc(historialPedidos.createdAt), asc(historialPedidos.id));
 
     const textil58 = this.crearResumen();
     const textil31 = this.crearResumen();
     const uv = this.crearResumen();
+    const pedidosContabilizados = new Set<number>();
 
     for (const pedido of resultados) {
+      if (pedidosContabilizados.has(pedido.pedidoId)) {
+        continue;
+      }
+      pedidosContabilizados.add(pedido.pedidoId);
+      if (pedido.fechaProduccion < inicio || pedido.fechaProduccion >= fin) {
+        continue;
+      }
+
       const resumen = this.obtenerResumenCorrespondiente(
         pedido.servicio,
         pedido.ancho,
