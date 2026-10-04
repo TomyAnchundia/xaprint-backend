@@ -33,6 +33,8 @@ export class ClientesService {
       .values({
         nombre: datos.nombre,
         telefono: datos.telefono,
+        cedula: datos.cedula ?? null,
+        direccion: datos.direccion ?? null,
       })
       .returning();
 

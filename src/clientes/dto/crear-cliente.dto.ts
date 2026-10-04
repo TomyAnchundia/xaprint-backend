@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CrearClienteDto {
   @IsString()
@@ -8,4 +8,14 @@ export class CrearClienteDto {
   @IsString()
   @IsNotEmpty()
   telefono!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  cedula?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(250)
+  direccion?: string | null;
 }

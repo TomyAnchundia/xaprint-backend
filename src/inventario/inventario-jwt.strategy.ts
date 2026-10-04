@@ -4,7 +4,10 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
 @Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy) {
+export class InventarioJwtStrategy extends PassportStrategy(
+  Strategy,
+  'jwt-inventario',
+) {
   constructor(configService: ConfigService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -13,22 +16,23 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: {
+  validate(payload: {
     sub: number;
     username: string;
     rol: string;
-    area: string | null;
-    sistema?: string;
+    sistema: string;
   }) {
-    if (payload.sistema === 'INVENTARIO') {
-      throw new UnauthorizedException('Token no válido para este sistema');
+    if (
+      payload.sistema !== 'INVENTARIO' ||
+      !['ADMIN', 'NORMAL'].includes(payload.rol)
+    ) {
+      throw new UnauthorizedException('Token de inventario no válido');
     }
 
     return {
       id: payload.sub,
       username: payload.username,
       rol: payload.rol,
-      area: payload.area,
     };
   }
 }

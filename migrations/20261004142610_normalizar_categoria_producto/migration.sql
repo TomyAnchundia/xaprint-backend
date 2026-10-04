@@ -1,0 +1,1 @@
+ALTER TABLE `productos_inventario` DROP COLUMN `categoria`;

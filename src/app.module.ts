@@ -8,6 +8,7 @@ import { PreciosModule } from './precios/precios.module';
 import { ProduccionModule } from './produccion/produccion.module';
 import { PagosModule } from './pagos/pagos.module';
 import { TarifasModule } from './tarifas/tarifas.module';
+import { InventarioModule } from './inventario/inventario.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { TarifasModule } from './tarifas/tarifas.module';
     ProduccionModule,
     PagosModule,
     TarifasModule,
+    InventarioModule,
   ],
   controllers: [],
   providers: [],

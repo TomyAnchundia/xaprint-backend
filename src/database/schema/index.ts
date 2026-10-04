@@ -9,10 +9,95 @@ export const usuarios = sqliteTable('usuarios', {
   area: text('area').default('TEXTIL31'),
 });
 
+export const usuariosInventario = sqliteTable('usuarios_inventario', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  username: text('username').notNull().unique(),
+  password: text('password').notNull(),
+  rol: text('rol').notNull().default('NORMAL'),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 export const clientes = sqliteTable('clientes', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   nombre: text('nombre').notNull(),
   telefono: text('telefono').notNull().unique(),
+  cedula: text('cedula'),
+  direccion: text('direccion'),
+});
+
+export const categoriasInventario = sqliteTable('categorias_inventario', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  nombre: text('nombre').notNull().unique(),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const productosInventario = sqliteTable('productos_inventario', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  nombre: text('nombre').notNull(),
+  sku: text('sku').notNull().unique(),
+  codigoBarras: text('codigo_barras').notNull().unique(),
+  categoriaId: integer('categoria_id').references(
+    () => categoriasInventario.id,
+  ),
+  precio: real('precio').notNull(),
+  existencia: integer('existencia').notNull().default(0),
+  stockMinimo: integer('stock_minimo').notNull().default(0),
+  activo: integer('activo', { mode: 'boolean' }).notNull().default(true),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const ventasInventario = sqliteTable('ventas_inventario', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  clienteId: integer('cliente_id')
+    .notNull()
+    .references(() => clientes.id),
+  usuarioId: integer('usuario_id')
+    .notNull()
+    .references(() => usuariosInventario.id),
+  metodoPago: text('metodo_pago').notNull(),
+  total: real('total').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const itemsVentaInventario = sqliteTable('items_venta_inventario', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  ventaId: integer('venta_id')
+    .notNull()
+    .references(() => ventasInventario.id),
+  productoId: integer('producto_id')
+    .notNull()
+    .references(() => productosInventario.id),
+  productoNombre: text('producto_nombre').notNull(),
+  cantidad: integer('cantidad').notNull(),
+  precio: real('precio').notNull(),
+  total: real('total').notNull(),
+});
+
+export const movimientosInventario = sqliteTable('movimientos_inventario', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  productoId: integer('producto_id')
+    .notNull()
+    .references(() => productosInventario.id),
+  productoNombre: text('producto_nombre').notNull(),
+  usuarioId: integer('usuario_id')
+    .notNull()
+    .references(() => usuariosInventario.id),
+  tipo: text('tipo').notNull(),
+  cantidad: integer('cantidad').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
 });
 
 export const pedidos = sqliteTable('pedidos', {
