@@ -1,4 +1,10 @@
-import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import {
+  integer,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 
 export const usuarios = sqliteTable('usuarios', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -35,6 +41,15 @@ export const categoriasInventario = sqliteTable('categorias_inventario', {
     .$defaultFn(() => new Date()),
 });
 
+export const tallasInventario = sqliteTable('tallas_inventario', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  nombre: text('nombre').notNull().unique(),
+  orden: integer('orden').notNull().default(0),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 export const productosInventario = sqliteTable('productos_inventario', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   nombre: text('nombre').notNull(),
@@ -44,6 +59,8 @@ export const productosInventario = sqliteTable('productos_inventario', {
     () => categoriasInventario.id,
   ),
   precio: real('precio').notNull(),
+  unidadesPorCaja: integer('unidades_por_caja'),
+  precioCaja: real('precio_caja'),
   existencia: integer('existencia').notNull().default(0),
   stockMinimo: integer('stock_minimo').notNull().default(0),
   activo: integer('activo', { mode: 'boolean' }).notNull().default(true),
@@ -54,6 +71,29 @@ export const productosInventario = sqliteTable('productos_inventario', {
     .notNull()
     .$defaultFn(() => new Date()),
 });
+
+export const variantesProductoInventario = sqliteTable(
+  'variantes_producto_inventario',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    productoId: integer('producto_id')
+      .notNull()
+      .references(() => productosInventario.id),
+    tallaId: integer('talla_id')
+      .notNull()
+      .references(() => tallasInventario.id),
+    sku: text('sku').notNull().unique(),
+    codigoBarras: text('codigo_barras').notNull().unique(),
+    existencia: integer('existencia').notNull().default(0),
+    stockMinimo: integer('stock_minimo').notNull().default(0),
+  },
+  (table) => [
+    uniqueIndex('uq_variantes_producto_talla').on(
+      table.productoId,
+      table.tallaId,
+    ),
+  ],
+);
 
 export const ventasInventario = sqliteTable('ventas_inventario', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -70,6 +110,27 @@ export const ventasInventario = sqliteTable('ventas_inventario', {
     .$defaultFn(() => new Date()),
 });
 
+export const abonosVentasInventario = sqliteTable(
+  'abonos_ventas_inventario',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    ventaId: integer('venta_id')
+      .notNull()
+      .references(() => ventasInventario.id),
+    clienteId: integer('cliente_id')
+      .notNull()
+      .references(() => clientes.id),
+    usuarioId: integer('usuario_id')
+      .notNull()
+      .references(() => usuariosInventario.id),
+    monto: real('monto').notNull(),
+    metodoPago: text('metodo_pago').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+);
+
 export const itemsVentaInventario = sqliteTable('items_venta_inventario', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   ventaId: integer('venta_id')
@@ -78,6 +139,14 @@ export const itemsVentaInventario = sqliteTable('items_venta_inventario', {
   productoId: integer('producto_id')
     .notNull()
     .references(() => productosInventario.id),
+  varianteId: integer('variante_id').references(
+    () => variantesProductoInventario.id,
+  ),
+  tallaNombre: text('talla_nombre').notNull().default('Única'),
+  presentacion: text('presentacion').notNull().default('UNIDAD'),
+  unidadesPorPresentacion: integer('unidades_por_presentacion')
+    .notNull()
+    .default(1),
   productoNombre: text('producto_nombre').notNull(),
   cantidad: integer('cantidad').notNull(),
   precio: real('precio').notNull(),
@@ -89,6 +158,10 @@ export const movimientosInventario = sqliteTable('movimientos_inventario', {
   productoId: integer('producto_id')
     .notNull()
     .references(() => productosInventario.id),
+  varianteId: integer('variante_id').references(
+    () => variantesProductoInventario.id,
+  ),
+  tallaNombre: text('talla_nombre').notNull().default('Única'),
   productoNombre: text('producto_nombre').notNull(),
   usuarioId: integer('usuario_id')
     .notNull()

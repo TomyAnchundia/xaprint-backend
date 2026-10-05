@@ -1,9 +1,15 @@
-import { IsIn, IsInt, IsPositive, Max } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsPositive, Max } from 'class-validator';
 
 export class RegistrarMovimientoDto {
+  @IsOptional()
   @IsInt()
   @IsPositive()
-  productoId!: number;
+  productoId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  varianteId?: number;
 
   @IsIn(['Ingreso', 'Salida'])
   tipo!: 'Ingreso' | 'Salida';

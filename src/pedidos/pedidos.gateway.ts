@@ -43,4 +43,9 @@ export class PedidosGateway {
   emitirFinanzasActualizadas() {
     this.server.emit('finanzasActualizadas');
   }
+
+  emitirInventarioActualizado() {
+    this.server.emit('inventarioActualizado');
+    this.emitirFinanzasActualizadas();
+  }
 }

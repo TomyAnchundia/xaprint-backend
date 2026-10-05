@@ -23,12 +23,15 @@ import { CrearClienteDto } from '../clientes/dto/crear-cliente.dto';
 import { ActualizarClienteDto } from '../clientes/dto/actualizar-cliente.dto';
 import { CrearProductoDto } from './dto/crear-producto.dto';
 import { CrearCategoriaDto } from './dto/crear-categoria.dto';
+import { CrearAbonoInventarioDto } from './dto/crear-abono-inventario.dto';
+import { CrearTallaDto } from './dto/crear-talla.dto';
 import { CrearUsuarioInventarioDto } from './dto/crear-usuario-inventario.dto';
 import { CrearVentaDto } from './dto/crear-venta.dto';
 import { LoginInventarioDto } from './dto/login-inventario.dto';
 import { RegistrarMovimientoDto } from './dto/registrar-movimiento.dto';
 import { InventarioAuthGuard } from './inventario-auth.guard';
 import { InventarioService } from './inventario.service';
+import { PedidosGateway } from '../pedidos/pedidos.gateway';
 
 interface RequestConUsuarioInventario extends Request {
   user: {
@@ -43,7 +46,14 @@ export class InventarioController {
   constructor(
     private readonly inventarioService: InventarioService,
     private readonly jwtService: JwtService,
+    private readonly pedidosGateway: PedidosGateway,
   ) {}
+
+  private async notificarCambio<T>(operacion: Promise<T>): Promise<T> {
+    const resultado = await operacion;
+    this.pedidosGateway.emitirInventarioActualizado();
+    return resultado;
+  }
 
   @Post('auth/login')
   async login(@Body() datos: LoginInventarioDto) {
@@ -84,7 +94,7 @@ export class InventarioController {
   @UseGuards(InventarioAuthGuard, RolesGuard)
   @Roles('ADMIN')
   crearCategoria(@Body() datos: CrearCategoriaDto) {
-    return this.inventarioService.crearCategoria(datos);
+    return this.notificarCambio(this.inventarioService.crearCategoria(datos));
   }
 
   @Patch('categorias/:id')
@@ -94,14 +104,30 @@ export class InventarioController {
     @Param('id', ParseIntPipe) id: number,
     @Body() datos: ActualizarCategoriaDto,
   ) {
-    return this.inventarioService.actualizarCategoria(id, datos);
+    return this.notificarCambio(
+      this.inventarioService.actualizarCategoria(id, datos),
+    );
   }
 
   @Delete('categorias/:id')
   @UseGuards(InventarioAuthGuard, RolesGuard)
   @Roles('ADMIN')
   eliminarCategoria(@Param('id', ParseIntPipe) id: number) {
-    return this.inventarioService.eliminarCategoria(id);
+    return this.notificarCambio(this.inventarioService.eliminarCategoria(id));
+  }
+
+  @Get('tallas')
+  @UseGuards(InventarioAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  obtenerTallas() {
+    return this.inventarioService.obtenerTallas();
+  }
+
+  @Post('tallas')
+  @UseGuards(InventarioAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  crearTalla(@Body() datos: CrearTallaDto) {
+    return this.notificarCambio(this.inventarioService.crearTalla(datos));
   }
 
   @Get('clientes')
@@ -111,11 +137,31 @@ export class InventarioController {
     return this.inventarioService.obtenerClientes();
   }
 
+  @Get('clientes/:id/cuenta')
+  @UseGuards(InventarioAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  obtenerCuentaCliente(@Param('id', ParseIntPipe) id: number) {
+    return this.inventarioService.obtenerCuentaCliente(id);
+  }
+
+  @Post('clientes/:id/abonos')
+  @UseGuards(InventarioAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  crearAbonoCliente(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() datos: CrearAbonoInventarioDto,
+    @Req() request: RequestConUsuarioInventario,
+  ) {
+    return this.notificarCambio(
+      this.inventarioService.crearAbonoCliente(id, datos, request.user),
+    );
+  }
+
   @Post('clientes')
   @UseGuards(InventarioAuthGuard, RolesGuard)
   @Roles('ADMIN', 'NORMAL')
   crearCliente(@Body() datos: CrearClienteDto) {
-    return this.inventarioService.crearCliente(datos);
+    return this.notificarCambio(this.inventarioService.crearCliente(datos));
   }
 
   @Patch('clientes/:id')
@@ -125,14 +171,16 @@ export class InventarioController {
     @Param('id', ParseIntPipe) id: number,
     @Body() datos: ActualizarClienteDto,
   ) {
-    return this.inventarioService.actualizarCliente(id, datos);
+    return this.notificarCambio(
+      this.inventarioService.actualizarCliente(id, datos),
+    );
   }
 
   @Delete('clientes/:id')
   @UseGuards(InventarioAuthGuard, RolesGuard)
   @Roles('ADMIN')
   eliminarCliente(@Param('id', ParseIntPipe) id: number) {
-    return this.inventarioService.eliminarCliente(id);
+    return this.notificarCambio(this.inventarioService.eliminarCliente(id));
   }
 
   @Get('productos/venta')
@@ -156,7 +204,9 @@ export class InventarioController {
     @Body() datos: CrearProductoDto,
     @Req() request: RequestConUsuarioInventario,
   ) {
-    return this.inventarioService.crearProducto(datos, request.user);
+    return this.notificarCambio(
+      this.inventarioService.crearProducto(datos, request.user),
+    );
   }
 
   @Patch('productos/:id')
@@ -167,14 +217,16 @@ export class InventarioController {
     @Body() datos: ActualizarProductoDto,
     @Req() request: RequestConUsuarioInventario,
   ) {
-    return this.inventarioService.actualizarProducto(id, datos, request.user);
+    return this.notificarCambio(
+      this.inventarioService.actualizarProducto(id, datos, request.user),
+    );
   }
 
   @Delete('productos/:id')
   @UseGuards(InventarioAuthGuard, RolesGuard)
   @Roles('ADMIN')
   eliminarProducto(@Param('id', ParseIntPipe) id: number) {
-    return this.inventarioService.eliminarProducto(id);
+    return this.notificarCambio(this.inventarioService.eliminarProducto(id));
   }
 
   @Post('movimientos')
@@ -184,7 +236,9 @@ export class InventarioController {
     @Body() datos: RegistrarMovimientoDto,
     @Req() request: RequestConUsuarioInventario,
   ) {
-    return this.inventarioService.registrarMovimiento(datos, request.user);
+    return this.notificarCambio(
+      this.inventarioService.registrarMovimiento(datos, request.user),
+    );
   }
 
   @Get('movimientos')
@@ -218,7 +272,9 @@ export class InventarioController {
     @Body() datos: CrearVentaDto,
     @Req() request: RequestConUsuarioInventario,
   ) {
-    return this.inventarioService.crearVenta(datos, request.user);
+    return this.notificarCambio(
+      this.inventarioService.crearVenta(datos, request.user),
+    );
   }
 
   @Patch('ventas/:id')
@@ -229,7 +285,9 @@ export class InventarioController {
     @Body() datos: CrearVentaDto,
     @Req() request: RequestConUsuarioInventario,
   ) {
-    return this.inventarioService.actualizarVenta(id, datos, request.user);
+    return this.notificarCambio(
+      this.inventarioService.actualizarVenta(id, datos, request.user),
+    );
   }
 
   @Get('resumen')
@@ -250,7 +308,7 @@ export class InventarioController {
   @UseGuards(InventarioAuthGuard, RolesGuard)
   @Roles('ADMIN')
   crearUsuario(@Body() datos: CrearUsuarioInventarioDto) {
-    return this.inventarioService.crearUsuario(datos);
+    return this.notificarCambio(this.inventarioService.crearUsuario(datos));
   }
 
   @Patch('usuarios/:id')
@@ -260,7 +318,9 @@ export class InventarioController {
     @Param('id', ParseIntPipe) id: number,
     @Body() datos: ActualizarUsuarioInventarioDto,
   ) {
-    return this.inventarioService.actualizarUsuario(id, datos);
+    return this.notificarCambio(
+      this.inventarioService.actualizarUsuario(id, datos),
+    );
   }
 
   @Delete('usuarios/:id')
@@ -270,13 +330,17 @@ export class InventarioController {
     @Param('id', ParseIntPipe) id: number,
     @Req() request: RequestConUsuarioInventario,
   ) {
-    return this.inventarioService.eliminarUsuario(id, request.user.id);
+    return this.notificarCambio(
+      this.inventarioService.eliminarUsuario(id, request.user.id),
+    );
   }
 
   @Post('usuarios/bootstrap')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   crearPrimerAdministrador(@Body() datos: CrearUsuarioInventarioDto) {
-    return this.inventarioService.crearPrimerAdministrador(datos);
+    return this.notificarCambio(
+      this.inventarioService.crearPrimerAdministrador(datos),
+    );
   }
 }

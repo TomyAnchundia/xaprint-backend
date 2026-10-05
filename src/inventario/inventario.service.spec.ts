@@ -79,6 +79,22 @@ describe('InventarioService', () => {
       'utf8',
     );
     await client.executeMultiple(normalizationMigration);
+    const sizeVariantsMigration = await readFile(
+      resolve(
+        __dirname,
+        '../../migrations/20261005001808_tallas_producto_variantes/migration.sql',
+      ),
+      'utf8',
+    );
+    await client.executeMultiple(sizeVariantsMigration);
+    const packagingAndCreditMigration = await readFile(
+      resolve(
+        __dirname,
+        '../../migrations/20261005005021_quick_lightspeed/migration.sql',
+      ),
+      'utf8',
+    );
+    await client.executeMultiple(packagingAndCreditMigration);
     const migratedProduct = await client.execute(
       `SELECT p.categoria_id, c.nombre AS categoria
        FROM productos_inventario p
@@ -100,13 +116,22 @@ describe('InventarioService', () => {
     expect(productColumns.rows.map((column) => column.name)).not.toContain(
       'categoria',
     );
+    const migratedVariant = await client.execute(
+      `SELECT talla.nombre, variante.existencia
+       FROM variantes_producto_inventario variante
+       INNER JOIN tallas_inventario talla ON talla.id = variante.talla_id
+       WHERE variante.sku = 'OLD-001'`,
+    );
+    expect(migratedVariant.rows).toMatchObject([
+      { nombre: 'Única', existencia: 0 },
+    ]);
     service = new InventarioService({
       db: drizzle({ client }),
     } as unknown as DatabaseService);
   });
 
-  afterAll(async () => {
-    await client.close();
+  afterAll(() => {
+    client.close();
   });
 
   it('keeps inventory accounts separate and records sales atomically', async () => {
@@ -221,6 +246,66 @@ describe('InventarioService', () => {
     expect((await service.obtenerProductos())[0].stock).toBe(6);
     expect((await service.obtenerVentas())[0].items[0].quantity).toBe(4);
 
+    const tallaM = await service.crearTalla({ nombre: 'M' });
+    const tallaL = await service.crearTalla({ nombre: 'L' });
+    await expect(service.crearTalla({ nombre: 'm' })).rejects.toThrow(
+      'La talla ya existe',
+    );
+    const productoConTallas = await service.crearProducto(
+      {
+        nombre: 'Camisa oversize negra',
+        categoriaId: categoria.id,
+        precio: 15,
+        variantes: [
+          { tallaId: tallaM.id, existencia: 2, stockMinimo: 1 },
+          { tallaId: tallaL.id, existencia: 5, stockMinimo: 1 },
+        ],
+      },
+      admin,
+    );
+    expect(productoConTallas).toMatchObject({
+      stock: 7,
+      variants: [
+        { size: 'M', stock: 2 },
+        { size: 'L', stock: 5 },
+      ],
+    });
+    const ventaTallaM = await service.crearVenta(
+      {
+        clienteId: cliente.id,
+        metodoPago: 'Efectivo',
+        items: [
+          {
+            varianteId: productoConTallas.variants[0].id,
+            cantidad: 1,
+          },
+        ],
+      },
+      admin,
+    );
+    expect(ventaTallaM.items).toMatchObject([{ size: 'M', quantity: 1 }]);
+    expect(
+      (await service.obtenerProductos()).find(
+        (item) => item.id === productoConTallas.id,
+      )?.variants,
+    ).toMatchObject([
+      { size: 'M', stock: 1 },
+      { size: 'L', stock: 5 },
+    ]);
+    await service.registrarMovimiento(
+      {
+        varianteId: productoConTallas.variants[1].id,
+        tipo: 'Ingreso',
+        cantidad: 2,
+      },
+      admin,
+    );
+    expect(
+      (await service.obtenerProductos()).find(
+        (item) => item.id === productoConTallas.id,
+      )?.stock,
+    ).toBe(8);
+
     await expect(
       service.actualizarVenta(
         1,
@@ -232,10 +317,132 @@ describe('InventarioService', () => {
         admin,
       ),
     ).rejects.toThrow('Existencias insuficientes');
-    expect((await service.obtenerProductos())[0].stock).toBe(6);
-    expect((await service.obtenerVentas())[0]).toMatchObject({
+    expect(
+      (await service.obtenerProductos()).find((item) => item.id === producto.id)
+        ?.stock,
+    ).toBe(6);
+    expect(
+      (await service.obtenerVentas()).find((sale) => sale.id === 'V-1'),
+    ).toMatchObject({
       payment: 'Transferencia',
       total: 10,
+    });
+
+    const tazas = await service.crearProducto(
+      {
+        nombre: 'Tazas blancas',
+        categoriaId: categoria.id,
+        precio: 1,
+        unidadesPorCaja: 36,
+        precioCaja: 33,
+        existencia: 200,
+      },
+      admin,
+    );
+    const primeraVentaCredito = await service.crearVenta(
+      {
+        clienteId: cliente.id,
+        metodoPago: 'Crédito',
+        abonoInicial: 5,
+        metodoAbonoInicial: 'Efectivo',
+        items: [
+          {
+            varianteId: tazas.variants[0].id,
+            cantidad: 2,
+            presentacion: 'CAJA',
+          },
+          {
+            varianteId: tazas.variants[0].id,
+            cantidad: 1,
+            presentacion: 'UNIDAD',
+          },
+        ],
+      },
+      admin,
+    );
+    expect(primeraVentaCredito).toMatchObject({
+      total: 67,
+      paid: 5,
+      debt: 62,
+      items: [
+        {
+          presentation: 'CAJA',
+          unitsPerPresentation: 36,
+          quantity: 2,
+          price: 33,
+        },
+        {
+          presentation: 'UNIDAD',
+          unitsPerPresentation: 1,
+          quantity: 1,
+          price: 1,
+        },
+      ],
+    });
+    expect(
+      (await service.obtenerProductos()).find(
+        (item) => item.id === tazas.id,
+      )?.stock,
+    ).toBe(127);
+    await expect(
+      service.crearVenta(
+        {
+          clienteId: cliente.id,
+          metodoPago: 'Efectivo',
+          items: [
+            {
+              varianteId: tazas.variants[0].id,
+              cantidad: 4,
+              presentacion: 'CAJA',
+            },
+          ],
+        },
+        admin,
+      ),
+    ).rejects.toThrow('Existencias insuficientes');
+    const segundaVentaCredito = await service.crearVenta(
+      {
+        clienteId: cliente.id,
+        metodoPago: 'Crédito',
+        items: [{ varianteId: tazas.variants[0].id, cantidad: 1 }],
+      },
+      admin,
+    );
+    expect(segundaVentaCredito.debt).toBe(1);
+    await expect(
+      service.actualizarVenta(
+        Number(primeraVentaCredito.id.slice(2)),
+        {
+          clienteId: cliente.id,
+          metodoPago: 'Efectivo',
+          items: [{ varianteId: tazas.variants[0].id, cantidad: 1 }],
+        },
+        admin,
+      ),
+    ).rejects.toThrow('Las ventas a crédito no se pueden editar');
+    const abono = await service.crearAbonoCliente(
+      cliente.id,
+      { monto: 60, metodoPago: 'Transferencia' },
+      admin,
+    );
+    expect(abono).toMatchObject({
+      monto: 60,
+      saldoDeuda: 3,
+      abonos: [{ ventaId: Number(primeraVentaCredito.id.slice(2)), monto: 60 }],
+    });
+    expect((await service.obtenerClientes()).find((item) => item.id === cliente.id))
+      .toMatchObject({ saldoDeuda: 3 });
+    const cuenta = await service.obtenerCuentaCliente(cliente.id);
+    expect(cuenta).toMatchObject({
+      saldoDeuda: 3,
+      ventas: [
+        { id: primeraVentaCredito.id, pagado: 65, saldo: 2 },
+        { id: segundaVentaCredito.id, pagado: 0, saldo: 1 },
+      ],
+      abonos: [
+        { venta: primeraVentaCredito.id, monto: 60 },
+        { venta: primeraVentaCredito.id, monto: 5 },
+      ],
     });
 
     await expect(
@@ -248,8 +455,11 @@ describe('InventarioService', () => {
         admin,
       ),
     ).rejects.toThrow('Existencias insuficientes');
-    expect((await service.obtenerProductos())[0].stock).toBe(6);
-    expect((await service.obtenerVentas()).length).toBe(1);
+    expect(
+      (await service.obtenerProductos()).find((item) => item.id === producto.id)
+        ?.stock,
+    ).toBe(6);
+    expect((await service.obtenerVentas()).length).toBe(4);
 
     await expect(service.eliminarUsuario(admin.id, admin.id)).rejects.toThrow(
       'No puedes eliminar la cuenta con la que iniciaste sesión',
