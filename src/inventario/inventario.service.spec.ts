@@ -95,6 +95,30 @@ describe('InventarioService', () => {
       'utf8',
     );
     await client.executeMultiple(packagingAndCreditMigration);
+    const colorAndDiscountMigration = await readFile(
+      resolve(
+        __dirname,
+        '../../migrations/20261006024342_variantes_color_descuentos/migration.sql',
+      ),
+      'utf8',
+    );
+    await client.executeMultiple(colorAndDiscountMigration);
+    const sizePricingMigration = await readFile(
+      resolve(
+        __dirname,
+        '../../migrations/20261006024343_precio_por_talla/migration.sql',
+      ),
+      'utf8',
+    );
+    await client.executeMultiple(sizePricingMigration);
+    const duplicateSizePricingMigration = await readFile(
+      resolve(
+        __dirname,
+        '../../migrations/20261006041736_same_boomerang/migration.sql',
+      ),
+      'utf8',
+    );
+    await client.executeMultiple(duplicateSizePricingMigration);
     const migratedProduct = await client.execute(
       `SELECT p.categoria_id, c.nombre AS categoria
        FROM productos_inventario p
@@ -117,13 +141,13 @@ describe('InventarioService', () => {
       'categoria',
     );
     const migratedVariant = await client.execute(
-      `SELECT talla.nombre, variante.existencia
+      `SELECT talla.nombre, variante.existencia, variante.precio
        FROM variantes_producto_inventario variante
        INNER JOIN tallas_inventario talla ON talla.id = variante.talla_id
        WHERE variante.sku = 'OLD-001'`,
     );
     expect(migratedVariant.rows).toMatchObject([
-      { nombre: 'Única', existencia: 0 },
+      { nombre: 'Única', existencia: 0, precio: 1 },
     ]);
     service = new InventarioService({
       db: drizzle({ client }),
@@ -234,27 +258,48 @@ describe('InventarioService', () => {
       {
         clienteId: cliente.id,
         metodoPago: 'Transferencia',
+        descuentoPorcentaje: 5,
         items: [{ productoId: producto.id, cantidad: 4 }],
       },
       admin,
     );
     expect(ventaActualizada).toMatchObject({
       id: 'V-1',
-      total: 10,
+      subtotal: 10,
+      discountPercentage: 5,
+      discountAmount: 0.5,
+      total: 9.5,
       payment: 'Transferencia',
     });
     expect((await service.obtenerProductos())[0].stock).toBe(6);
     expect((await service.obtenerVentas())[0].items[0].quantity).toBe(4);
+    expect((await service.obtenerVentas())[0]).toMatchObject({
+      subtotal: 10,
+      discountPercentage: 5,
+      discountAmount: 0.5,
+      total: 9.5,
+    });
 
     const tallaM = await service.crearTalla({ nombre: 'M' });
     const tallaL = await service.crearTalla({ nombre: 'L' });
+    const tallaTemporal = await service.crearTalla({ nombre: 'Temporal' });
+    await expect(
+      service.actualizarTalla(tallaTemporal.id, { nombre: 'M' }),
+    ).rejects.toThrow('La talla ya existe');
+    await expect(
+      service.actualizarTalla(tallaTemporal.id, { nombre: 'Temporal editada' }),
+    ).resolves.toMatchObject({ nombre: 'Temporal editada' });
+    await expect(
+      service.eliminarTalla(tallaTemporal.id),
+    ).resolves.toMatchObject({ eliminado: true });
+    const categoriaPrenda = await service.crearCategoria({ nombre: 'Prenda' });
     await expect(service.crearTalla({ nombre: 'm' })).rejects.toThrow(
       'La talla ya existe',
     );
     const productoConTallas = await service.crearProducto(
       {
         nombre: 'Camisa oversize negra',
-        categoriaId: categoria.id,
+        categoriaId: categoriaPrenda.id,
         precio: 15,
         variantes: [
           { tallaId: tallaM.id, existencia: 2, stockMinimo: 1 },
@@ -262,6 +307,9 @@ describe('InventarioService', () => {
         ],
       },
       admin,
+    );
+    await expect(service.eliminarTalla(tallaM.id)).rejects.toThrow(
+      'mientras esté asignada',
     );
     expect(productoConTallas).toMatchObject({
       stock: 7,
@@ -325,13 +373,268 @@ describe('InventarioService', () => {
       (await service.obtenerVentas()).find((sale) => sale.id === 'V-1'),
     ).toMatchObject({
       payment: 'Transferencia',
-      total: 10,
+      total: 9.5,
     });
 
+    const colorRojo = await service.crearColor({ nombre: 'Rojo' });
+    const colorAzul = await service.crearColor({ nombre: 'Azul' });
+    const colorVerde = await service.crearColor({ nombre: 'Verde' });
+    await expect(
+      service.actualizarColor(colorVerde.id, { nombre: 'Azul' }),
+    ).rejects.toThrow('El color ya existe');
+    await expect(
+      service.actualizarColor(colorVerde.id, { nombre: 'Verde oscuro' }),
+    ).resolves.toMatchObject({ nombre: 'Verde oscuro' });
+    await expect(service.eliminarColor(colorVerde.id)).resolves.toMatchObject({
+      eliminado: true,
+    });
+    const tallaUnica = (await service.obtenerTallas()).find(
+      (talla) => talla.nombre === 'Única',
+    )!;
+    const prendaPorTallaYColor = await service.crearProducto(
+      {
+        nombre: 'Prenda con tallas y colores',
+        categoriaId: categoriaPrenda.id,
+        precio: 12,
+        variantes: [
+          {
+            tallaId: tallaM.id,
+            colorId: colorRojo.id,
+            existencia: 1,
+            precio: 12.5,
+          },
+          {
+            tallaId: tallaL.id,
+            colorId: colorRojo.id,
+            existencia: 3,
+            precio: 15,
+          },
+          {
+            tallaId: tallaM.id,
+            colorId: colorAzul.id,
+            existencia: 2,
+            stockMinimo: 1,
+            precio: 12.5,
+          },
+          {
+            tallaId: tallaL.id,
+            colorId: colorAzul.id,
+            existencia: 4,
+            stockMinimo: 2,
+            precio: 15,
+          },
+        ],
+      },
+      admin,
+    );
+    expect(prendaPorTallaYColor.variants).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          size: 'M',
+          color: 'Rojo',
+          stock: 1,
+          price: 12.5,
+        }),
+        expect.objectContaining({
+          size: 'L',
+          color: 'Rojo',
+          stock: 3,
+          price: 15,
+        }),
+        expect.objectContaining({
+          size: 'M',
+          color: 'Azul',
+          stock: 2,
+          minStock: 1,
+          price: 12.5,
+        }),
+        expect.objectContaining({
+          size: 'L',
+          color: 'Azul',
+          stock: 4,
+          minStock: 2,
+          price: 15,
+        }),
+      ]),
+    );
+    await expect(
+      service.actualizarProducto(
+        prendaPorTallaYColor.id,
+        {
+          variantes: [
+            {
+              tallaId: tallaM.id,
+              colorId: colorRojo.id,
+              existencia: 1,
+              precio: 12.5,
+            },
+            {
+              tallaId: tallaL.id,
+              colorId: colorRojo.id,
+              existencia: 3,
+              precio: 15,
+            },
+            {
+              tallaId: tallaM.id,
+              colorId: colorAzul.id,
+              existencia: 2,
+              precio: 13,
+            },
+            {
+              tallaId: tallaL.id,
+              colorId: colorAzul.id,
+              existencia: 4,
+              precio: 15,
+            },
+          ],
+        },
+        admin,
+      ),
+    ).rejects.toThrow('El precio debe ser igual para todos los colores');
+    await expect(
+      service.crearProducto(
+        {
+          nombre: 'Prenda con precios de color distintos',
+          categoriaId: categoriaPrenda.id,
+          precio: 12,
+          variantes: [
+            { tallaId: tallaM.id, colorId: colorRojo.id, existencia: 1 },
+            {
+              tallaId: tallaM.id,
+              colorId: colorAzul.id,
+              existencia: 1,
+              precio: 11,
+            },
+          ],
+        },
+        admin,
+      ),
+    ).rejects.toThrow('El precio debe ser igual para todos los colores');
+    const productoPorColor = await service.crearProducto(
+      {
+        nombre: 'Accesorio por color',
+        categoriaId: categoriaPrenda.id,
+        precio: 4,
+        variantes: [
+          {
+            tallaId: tallaM.id,
+            colorId: colorRojo.id,
+            existencia: 2,
+            precio: 14,
+          },
+          {
+            tallaId: tallaL.id,
+            colorId: colorAzul.id,
+            existencia: 3,
+            precio: 17,
+          },
+        ],
+      },
+      admin,
+    );
+    expect(productoPorColor.variants).toMatchObject([
+      { colorId: colorRojo.id, color: 'Rojo', stock: 2 },
+      { colorId: colorAzul.id, color: 'Azul', stock: 3 },
+    ]);
+    await expect(service.eliminarColor(colorRojo.id)).rejects.toThrow(
+      'mientras esté asignado',
+    );
+    await expect(
+      service.crearProducto(
+        {
+          nombre: 'Color fuera de prendas',
+          categoriaId: categoria.id,
+          precio: 4,
+          variantes: [
+            {
+              tallaId: tallaM.id,
+              colorId: colorRojo.id,
+              existencia: 1,
+            },
+          ],
+        },
+        admin,
+      ),
+    ).rejects.toThrow('Los colores solo se pueden configurar');
+    const ventaColor = await service.crearVenta(
+      {
+        clienteId: cliente.id,
+        metodoPago: 'Efectivo',
+        items: [{ varianteId: productoPorColor.variants[0].id, cantidad: 1 }],
+      },
+      admin,
+    );
+    expect(ventaColor.items).toMatchObject([
+      { size: 'M · Rojo', quantity: 1, price: 14 },
+    ]);
+    const productoPorColorActualizado = await service.actualizarProducto(
+      productoPorColor.id,
+      {
+        variantes: [
+          {
+            tallaId: tallaM.id,
+            colorId: colorRojo.id,
+            existencia: 4,
+            precio: 15,
+          },
+          {
+            tallaId: tallaL.id,
+            colorId: colorAzul.id,
+            existencia: 3,
+            precio: 18,
+          },
+        ],
+      },
+      admin,
+    );
+    expect(productoPorColorActualizado.variants).toMatchObject([
+      { size: 'M', color: 'Rojo', stock: 4, price: 15 },
+      { size: 'L', color: 'Azul', stock: 3, price: 18 },
+    ]);
+    await expect(
+      service.actualizarProducto(
+        productoPorColor.id,
+        {
+          categoriaId: categoria.id,
+          variantes: [
+            {
+              tallaId: tallaM.id,
+              colorId: colorRojo.id,
+              existencia: 4,
+            },
+          ],
+        },
+        admin,
+      ),
+    ).rejects.toThrow('Los colores solo se pueden configurar');
+    await expect(
+      service.actualizarProducto(
+        productoPorColor.id,
+        {
+          variantes: [
+            {
+              tallaId: tallaM.id,
+              colorId: colorRojo.id,
+              existencia: 4,
+            },
+          ],
+        },
+        admin,
+      ),
+    ).rejects.toThrow('tiene stock o historial');
+    expect(
+      (await service.obtenerProductos()).some(
+        (product) => product.id === productoPorColor.id,
+      ),
+    ).toBe(true);
+
+    const categoriaInsumos = await service.crearCategoria({
+      nombre: 'Insumos',
+    });
     const tazas = await service.crearProducto(
       {
         nombre: 'Tazas blancas',
-        categoriaId: categoria.id,
+        categoriaId: categoriaInsumos.id,
         precio: 1,
         unidadesPorCaja: 36,
         precioCaja: 33,
@@ -459,7 +762,7 @@ describe('InventarioService', () => {
       (await service.obtenerProductos()).find((item) => item.id === producto.id)
         ?.stock,
     ).toBe(6);
-    expect((await service.obtenerVentas()).length).toBe(4);
+    expect((await service.obtenerVentas()).length).toBe(5);
 
     await expect(service.eliminarUsuario(admin.id, admin.id)).rejects.toThrow(
       'No puedes eliminar la cuenta con la que iniciaste sesión',

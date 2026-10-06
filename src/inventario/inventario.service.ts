@@ -11,6 +11,7 @@ import {
   abonosVentasInventario,
   categoriasInventario,
   clientes,
+  coloresInventario,
   itemsVentaInventario,
   movimientosInventario,
   pagos,
@@ -58,6 +59,87 @@ export class InventarioService {
       .orderBy(tallasInventario.orden, tallasInventario.id);
   }
 
+  async obtenerColores() {
+    return this.database.db.select().from(coloresInventario).orderBy(coloresInventario.nombre);
+  }
+
+  async crearColor(datos: { nombre: string }) {
+    const nombre = datos.nombre.trim();
+    if (!nombre) throw new BadRequestException('El nombre del color es obligatorio');
+    const existentes = await this.database.db
+      .select({ nombre: coloresInventario.nombre })
+      .from(coloresInventario);
+    if (
+      existentes.some(
+        (color) =>
+          color.nombre.toLocaleLowerCase('es') ===
+          nombre.toLocaleLowerCase('es'),
+      )
+    ) {
+      throw new ConflictException('El color ya existe');
+    }
+    const [color] = await this.database.db
+      .insert(coloresInventario)
+      .values({ nombre })
+      .returning();
+    return color;
+  }
+
+  async actualizarColor(id: number, datos: { nombre: string }) {
+    const nombre = datos.nombre.trim();
+    if (!nombre) {
+      throw new BadRequestException('El nombre del color es obligatorio');
+    }
+    const [existente] = await this.database.db
+      .select({ id: coloresInventario.id })
+      .from(coloresInventario)
+      .where(eq(coloresInventario.id, id))
+      .limit(1);
+    if (!existente) throw new NotFoundException('Color no encontrado');
+    const colores = await this.database.db
+      .select({ id: coloresInventario.id, nombre: coloresInventario.nombre })
+      .from(coloresInventario);
+    if (
+      colores.some(
+        (color) =>
+          color.id !== id &&
+          color.nombre.toLocaleLowerCase('es') ===
+            nombre.toLocaleLowerCase('es'),
+      )
+    ) {
+      throw new ConflictException('El color ya existe');
+    }
+    const [color] = await this.database.db
+      .update(coloresInventario)
+      .set({ nombre })
+      .where(eq(coloresInventario.id, id))
+      .returning();
+    return color;
+  }
+
+  async eliminarColor(id: number) {
+    const [existente] = await this.database.db
+      .select({ id: coloresInventario.id })
+      .from(coloresInventario)
+      .where(eq(coloresInventario.id, id))
+      .limit(1);
+    if (!existente) throw new NotFoundException('Color no encontrado');
+    const [variante] = await this.database.db
+      .select({ id: variantesProductoInventario.id })
+      .from(variantesProductoInventario)
+      .where(eq(variantesProductoInventario.colorId, id))
+      .limit(1);
+    if (variante) {
+      throw new ConflictException(
+        'No se puede eliminar el color mientras esté asignado a productos',
+      );
+    }
+    await this.database.db
+      .delete(coloresInventario)
+      .where(eq(coloresInventario.id, id));
+    return { id, eliminado: true };
+  }
+
   async crearTalla(datos: CrearTallaDto) {
     const nombre = datos.nombre.trim();
     if (!nombre)
@@ -85,6 +167,67 @@ export class InventarioService {
       .values({ nombre, orden })
       .returning();
     return talla;
+  }
+
+  async actualizarTalla(id: number, datos: CrearTallaDto) {
+    const nombre = datos.nombre.trim();
+    if (!nombre) {
+      throw new BadRequestException('El nombre de la talla es obligatorio');
+    }
+    const [existente] = await this.database.db
+      .select({ id: tallasInventario.id, nombre: tallasInventario.nombre })
+      .from(tallasInventario)
+      .where(eq(tallasInventario.id, id))
+      .limit(1);
+    if (!existente) throw new NotFoundException('Talla no encontrada');
+    if (existente.nombre === 'Única') {
+      throw new BadRequestException('La talla Única es del sistema y no se puede editar');
+    }
+    const tallas = await this.database.db
+      .select({ id: tallasInventario.id, nombre: tallasInventario.nombre })
+      .from(tallasInventario);
+    if (
+      tallas.some(
+        (talla) =>
+          talla.id !== id &&
+          talla.nombre.toLocaleLowerCase('es') ===
+            nombre.toLocaleLowerCase('es'),
+      )
+    ) {
+      throw new ConflictException('La talla ya existe');
+    }
+    const [talla] = await this.database.db
+      .update(tallasInventario)
+      .set({ nombre })
+      .where(eq(tallasInventario.id, id))
+      .returning();
+    return talla;
+  }
+
+  async eliminarTalla(id: number) {
+    const [existente] = await this.database.db
+      .select({ id: tallasInventario.id, nombre: tallasInventario.nombre })
+      .from(tallasInventario)
+      .where(eq(tallasInventario.id, id))
+      .limit(1);
+    if (!existente) throw new NotFoundException('Talla no encontrada');
+    if (existente.nombre === 'Única') {
+      throw new BadRequestException('La talla Única es del sistema y no se puede eliminar');
+    }
+    const [variante] = await this.database.db
+      .select({ id: variantesProductoInventario.id })
+      .from(variantesProductoInventario)
+      .where(eq(variantesProductoInventario.tallaId, id))
+      .limit(1);
+    if (variante) {
+      throw new ConflictException(
+        'No se puede eliminar la talla mientras esté asignada a productos',
+      );
+    }
+    await this.database.db
+      .delete(tallasInventario)
+      .where(eq(tallasInventario.id, id));
+    return { id, eliminado: true };
   }
 
   async obtenerCategorias() {
@@ -484,6 +627,9 @@ export class InventarioService {
       return {
         id: `V-${venta.id}`,
         fecha: venta.createdAt,
+        subtotal: venta.subtotal,
+        descuentoPorcentaje: venta.descuentoPorcentaje,
+        descuentoMonto: venta.descuentoMonto,
         total: venta.total,
         pagado,
         saldo: Math.max(0, Math.round((venta.total - pagado) * 100) / 100),
@@ -736,12 +882,14 @@ export class InventarioService {
     usuario: UsuarioInventarioActual,
   ) {
     const categoria = await this.obtenerCategoria(datos.categoriaId);
-    this.validarConfiguracionCaja(
-      datos.unidadesPorCaja,
-      datos.precioCaja,
-    );
+    const esInsumo = this.esCategoria(categoria.nombre, 'insumos');
+    const esPrenda = this.esCategoria(categoria.nombre, 'prenda');
+    if (!esInsumo && (datos.unidadesPorCaja != null || datos.precioCaja != null)) {
+      throw new BadRequestException('La venta por caja solo está disponible para insumos');
+    }
+    this.validarConfiguracionCaja(datos.unidadesPorCaja, datos.precioCaja);
     const producto = await this.database.db.transaction(async (tx) => {
-      const tallas =
+      const variantes =
         datos.variantes !== undefined
           ? datos.variantes
           : [
@@ -751,15 +899,16 @@ export class InventarioService {
                 stockMinimo: datos.stockMinimo ?? 0,
               },
             ];
-      if (!tallas.length) {
-        throw new BadRequestException('Selecciona al menos una talla');
+      if (!variantes.length) {
+        throw new BadRequestException('Selecciona al menos una variante');
       }
-      const tallaIds = tallas.map((variante) => variante.tallaId);
-      if (new Set(tallaIds).size !== tallaIds.length) {
+      const claves = variantes.map((variante) => `${variante.tallaId}:${variante.colorId ?? ''}`);
+      if (new Set(claves).size !== claves.length) {
         throw new BadRequestException(
-          'No puedes repetir una talla en el producto',
+          'No puedes repetir una combinación de talla y color en el producto',
         );
       }
+      const tallaIds = [...new Set(variantes.map((variante) => variante.tallaId))];
       const idsTallasExistentes = await tx
         .select({ id: tallasInventario.id })
         .from(tallasInventario)
@@ -767,6 +916,36 @@ export class InventarioService {
       if (idsTallasExistentes.length !== tallaIds.length) {
         throw new NotFoundException(
           'Una de las tallas seleccionadas no existe',
+        );
+      }
+      const colorIds = [...new Set(variantes.flatMap((variante) => variante.colorId ? [variante.colorId] : []))];
+      const coloresExistentes = colorIds.length
+        ? await tx
+            .select({ id: coloresInventario.id })
+            .from(coloresInventario)
+            .where(inArray(coloresInventario.id, colorIds))
+        : [];
+      if (coloresExistentes.length !== colorIds.length) {
+        throw new NotFoundException('Uno de los colores seleccionados no existe');
+      }
+      const tallaUnicaId = await this.obtenerTallaUnicaId(tx);
+      if (!esPrenda && colorIds.length > 0) {
+        throw new BadRequestException(
+          'Los colores solo se pueden configurar en productos de categoría Prenda',
+        );
+      }
+      if (!esPrenda && variantes.some((variante) => variante.tallaId !== tallaUnicaId)) {
+        throw new BadRequestException('Solo los productos de categoría Prenda pueden tener tallas');
+      }
+      if (esPrenda && variantes.some((variante) => variante.tallaId === tallaUnicaId)) {
+        throw new BadRequestException('Los productos de categoría Prenda deben usar tallas configuradas');
+      }
+      if (esPrenda) {
+        this.validarPreciosPorTalla(
+          variantes.map((variante) => ({
+            tallaId: variante.tallaId,
+            precio: variante.precio ?? datos.precio,
+          })),
         );
       }
       const [row] = await tx
@@ -777,14 +956,14 @@ export class InventarioService {
           codigoBarras: 'SKU-PENDING',
           categoriaId: categoria.id,
           precio: datos.precio,
-          unidadesPorCaja: datos.unidadesPorCaja ?? null,
-          precioCaja: datos.precioCaja ?? null,
-          existencia: tallas.reduce(
-            (total, talla) => total + talla.existencia,
+          unidadesPorCaja: esInsumo ? datos.unidadesPorCaja ?? null : null,
+          precioCaja: esInsumo ? datos.precioCaja ?? null : null,
+          existencia: variantes.reduce(
+            (total, variante) => total + variante.existencia,
             0,
           ),
-          stockMinimo: tallas.reduce(
-            (total, talla) => total + (talla.stockMinimo ?? 0),
+          stockMinimo: variantes.reduce(
+            (total, variante) => total + (variante.stockMinimo ?? 0),
             0,
           ),
         })
@@ -798,28 +977,38 @@ export class InventarioService {
         })
         .where(eq(productosInventario.id, row.id))
         .returning();
-      for (const talla of tallas) {
+      for (const varianteDatos of variantes) {
+        const skuVariante = `${sku}-T${varianteDatos.tallaId}${varianteDatos.colorId ? `-C${varianteDatos.colorId}` : ''}`;
         const [variante] = await tx
           .insert(variantesProductoInventario)
           .values({
             productoId: productoCreado.id,
-            tallaId: talla.tallaId,
-            sku: `${sku}-T${talla.tallaId}`,
-            codigoBarras: `BC-${sku}-T${talla.tallaId}`,
-            existencia: talla.existencia,
-            stockMinimo: talla.stockMinimo ?? 0,
+            tallaId: varianteDatos.tallaId,
+            colorId: varianteDatos.colorId ?? null,
+            sku: skuVariante,
+            codigoBarras: `BC-${skuVariante}`,
+            existencia: varianteDatos.existencia,
+            stockMinimo: varianteDatos.stockMinimo ?? 0,
+            precio: esPrenda ? varianteDatos.precio ?? datos.precio : datos.precio,
           })
           .returning();
-        const [tallaDetalle] = await tx
-          .select({ nombre: tallasInventario.nombre })
+        const [atributos] = await tx
+          .select({
+            talla: tallasInventario.nombre,
+            color: coloresInventario.nombre,
+          })
           .from(tallasInventario)
-          .where(eq(tallasInventario.id, talla.tallaId))
+          .leftJoin(
+            coloresInventario,
+            eq(coloresInventario.id, varianteDatos.colorId ?? -1),
+          )
+          .where(eq(tallasInventario.id, varianteDatos.tallaId))
           .limit(1);
         if (variante.existencia > 0) {
           await tx.insert(movimientosInventario).values({
             productoId: productoCreado.id,
             varianteId: variante.id,
-            tallaNombre: tallaDetalle.nombre,
+            tallaNombre: this.etiquetaVariante(atributos.talla, atributos.color),
             productoNombre: productoCreado.nombre,
             usuarioId: usuario.id,
             tipo: 'Ingreso',
@@ -854,6 +1043,17 @@ export class InventarioService {
         .limit(1);
       if (!producto) throw new NotFoundException('Producto no encontrado');
 
+      const [categoriaOriginal] = await tx
+        .select()
+        .from(categoriasInventario)
+        .where(eq(categoriasInventario.id, producto.categoriaId ?? 0))
+        .limit(1);
+      if (!categoriaOriginal) {
+        throw new NotFoundException('Categoría no encontrada');
+      }
+      const categoriaEfectiva = categoria ?? categoriaOriginal;
+      const esInsumo = this.esCategoria(categoriaEfectiva.nombre, 'insumos');
+      const esPrenda = this.esCategoria(categoriaEfectiva.nombre, 'prenda');
       const cambios: Partial<typeof productosInventario.$inferInsert> = {
         updatedAt: new Date(),
       };
@@ -862,9 +1062,13 @@ export class InventarioService {
         cambios.categoriaId = categoria.id;
       }
       if (datos.precio !== undefined) cambios.precio = datos.precio;
-      if (
+      if (!esInsumo) {
+        cambios.unidadesPorCaja = null;
+        cambios.precioCaja = null;
+      } else if (
         datos.unidadesPorCaja !== undefined ||
-        datos.precioCaja !== undefined
+        datos.precioCaja !== undefined ||
+        categoria !== null
       ) {
         const unidadesPorCaja =
           datos.unidadesPorCaja === undefined
@@ -880,25 +1084,56 @@ export class InventarioService {
         .select({
           variante: variantesProductoInventario,
           tallaNombre: tallasInventario.nombre,
+          colorNombre: coloresInventario.nombre,
         })
         .from(variantesProductoInventario)
         .innerJoin(
           tallasInventario,
           eq(variantesProductoInventario.tallaId, tallasInventario.id),
         )
+        .leftJoin(
+          coloresInventario,
+          eq(variantesProductoInventario.colorId, coloresInventario.id),
+        )
         .where(eq(variantesProductoInventario.productoId, id));
+      const tallaUnicaId = await this.obtenerTallaUnicaId(tx);
+      if (!datos.variantes) {
+        const tieneAtributosDePrenda = variantesActuales.some(
+          ({ variante }) =>
+            variante.colorId !== null ||
+            variante.tallaId !== tallaUnicaId,
+        );
+        if (!esPrenda && tieneAtributosDePrenda) {
+          throw new BadRequestException(
+            'Envía las variantes actualizadas para quitar tallas y colores antes de cambiar la categoría',
+          );
+        }
+        if (
+          esPrenda &&
+          variantesActuales.some(
+            ({ variante }) => variante.tallaId === tallaUnicaId,
+          )
+        ) {
+          throw new BadRequestException(
+            'Configura las tallas y colores al cambiar un producto a categoría Prenda',
+          );
+        }
+      }
       if (datos.variantes) {
         if (!datos.variantes.length) {
           throw new BadRequestException(
-            'El producto debe tener al menos una talla',
+            'El producto debe tener al menos una variante',
           );
         }
-        const tallaIds = datos.variantes.map((variante) => variante.tallaId);
-        if (new Set(tallaIds).size !== tallaIds.length) {
+        const claves = datos.variantes.map(
+          (variante) => `${variante.tallaId}:${variante.colorId ?? ''}`,
+        );
+        if (new Set(claves).size !== claves.length) {
           throw new BadRequestException(
-            'No puedes repetir una talla en el producto',
+            'No puedes repetir una combinación de talla y color en el producto',
           );
         }
+        const tallaIds = [...new Set(datos.variantes.map((variante) => variante.tallaId))];
         const tallasExistentes = await tx
           .select({ id: tallasInventario.id })
           .from(tallasInventario)
@@ -908,25 +1143,83 @@ export class InventarioService {
             'Una de las tallas seleccionadas no existe',
           );
         }
+        const colorIds = [...new Set(datos.variantes.flatMap((variante) => variante.colorId ? [variante.colorId] : []))];
+        const coloresExistentes = colorIds.length
+          ? await tx
+              .select({ id: coloresInventario.id })
+              .from(coloresInventario)
+              .where(inArray(coloresInventario.id, colorIds))
+          : [];
+        if (coloresExistentes.length !== colorIds.length) {
+          throw new NotFoundException('Uno de los colores seleccionados no existe');
+        }
+        if (!esPrenda && colorIds.length > 0) {
+          throw new BadRequestException(
+            'Los colores solo se pueden configurar en productos de categoría Prenda',
+          );
+        }
+        if (
+          (!esPrenda &&
+            datos.variantes.some((variante) => variante.tallaId !== tallaUnicaId)) ||
+          (esPrenda &&
+            datos.variantes.some((variante) => variante.tallaId === tallaUnicaId))
+        ) {
+          throw new BadRequestException(
+            'Las tallas solo se pueden configurar en productos de categoría Prenda',
+          );
+        }
+        if (esPrenda) {
+          const preciosPorTalla = datos.variantes.map((varianteDatos) => {
+            const existente = variantesActuales.find(
+              ({ variante }) =>
+                variante.tallaId === varianteDatos.tallaId &&
+                variante.colorId === (varianteDatos.colorId ?? null),
+            );
+            const precioExistenteMismaTalla = variantesActuales.find(
+              ({ variante }) => variante.tallaId === varianteDatos.tallaId,
+            )?.variante.precio;
+            return {
+              tallaId: varianteDatos.tallaId,
+              precio:
+                varianteDatos.precio ??
+                existente?.variante.precio ??
+                precioExistenteMismaTalla ??
+                datos.precio ??
+                producto.precio,
+            };
+          });
+          this.validarPreciosPorTalla(preciosPorTalla);
+        }
 
-        for (const talla of datos.variantes) {
+        for (const varianteDatos of datos.variantes) {
           const existente = variantesActuales.find(
-            (variante) => variante.variante.tallaId === talla.tallaId,
+            (variante) =>
+              variante.variante.tallaId === varianteDatos.tallaId &&
+              variante.variante.colorId === (varianteDatos.colorId ?? null),
           );
           if (existente) {
-            const diferencia = talla.existencia - existente.variante.existencia;
+            const diferencia =
+              varianteDatos.existencia - existente.variante.existencia;
             await tx
               .update(variantesProductoInventario)
               .set({
-                existencia: talla.existencia,
-                stockMinimo: talla.stockMinimo ?? 0,
+                existencia: varianteDatos.existencia,
+                stockMinimo: varianteDatos.stockMinimo ?? 0,
+                precio: esPrenda
+                  ? varianteDatos.precio ??
+                    existente.variante.precio ??
+                    producto.precio
+                  : datos.precio ?? producto.precio,
               })
               .where(eq(variantesProductoInventario.id, existente.variante.id));
             if (diferencia !== 0) {
               await tx.insert(movimientosInventario).values({
                 productoId: id,
                 varianteId: existente.variante.id,
-                tallaNombre: existente.tallaNombre,
+                tallaNombre: this.etiquetaVariante(
+                  existente.tallaNombre,
+                  existente.colorNombre,
+                ),
                 productoNombre: producto.nombre,
                 usuarioId: usuario.id,
                 tipo: diferencia > 0 ? 'Ingreso' : 'Salida',
@@ -934,28 +1227,42 @@ export class InventarioService {
               });
             }
           } else {
-            const sku = `${producto.sku}-T${talla.tallaId}`;
-            const [tallaDetalle] = await tx
-              .select({ nombre: tallasInventario.nombre })
+            const sku = `${producto.sku}-T${varianteDatos.tallaId}${varianteDatos.colorId ? `-C${varianteDatos.colorId}` : ''}`;
+            const [atributos] = await tx
+              .select({
+                talla: tallasInventario.nombre,
+                color: coloresInventario.nombre,
+              })
               .from(tallasInventario)
-              .where(eq(tallasInventario.id, talla.tallaId))
+              .leftJoin(
+                coloresInventario,
+                eq(coloresInventario.id, varianteDatos.colorId ?? -1),
+              )
+              .where(eq(tallasInventario.id, varianteDatos.tallaId))
               .limit(1);
             const [variante] = await tx
               .insert(variantesProductoInventario)
               .values({
                 productoId: id,
-                tallaId: talla.tallaId,
+                tallaId: varianteDatos.tallaId,
+                colorId: varianteDatos.colorId ?? null,
                 sku,
                 codigoBarras: `BC-${sku}`,
-                existencia: talla.existencia,
-                stockMinimo: talla.stockMinimo ?? 0,
+                existencia: varianteDatos.existencia,
+                stockMinimo: varianteDatos.stockMinimo ?? 0,
+                precio: esPrenda
+                  ? varianteDatos.precio ?? datos.precio ?? producto.precio
+                  : datos.precio ?? producto.precio,
               })
               .returning();
             if (variante.existencia > 0) {
               await tx.insert(movimientosInventario).values({
                 productoId: id,
                 varianteId: variante.id,
-                tallaNombre: tallaDetalle.nombre,
+                tallaNombre: this.etiquetaVariante(
+                  atributos.talla,
+                  atributos.color,
+                ),
                 productoNombre: producto.nombre,
                 usuarioId: usuario.id,
                 tipo: 'Ingreso',
@@ -966,7 +1273,11 @@ export class InventarioService {
         }
 
         for (const variante of variantesActuales) {
-          if (tallaIds.includes(variante.variante.tallaId)) continue;
+          if (
+            claves.includes(
+              `${variante.variante.tallaId}:${variante.variante.colorId ?? ''}`,
+            )
+          ) continue;
           const [venta] = await tx
             .select({ id: itemsVentaInventario.id })
             .from(itemsVentaInventario)
@@ -979,7 +1290,7 @@ export class InventarioService {
             .limit(1);
           if (venta || movimiento || variante.variante.existencia > 0) {
             throw new ConflictException(
-              `No se puede quitar la talla ${variante.tallaNombre}: tiene stock o historial`,
+              `No se puede quitar la variante ${this.etiquetaVariante(variante.tallaNombre, variante.colorNombre)}: tiene stock o historial`,
             );
           }
           await tx
@@ -988,7 +1299,8 @@ export class InventarioService {
         }
       } else if (
         datos.existencia !== undefined ||
-        datos.stockMinimo !== undefined
+        datos.stockMinimo !== undefined ||
+        (datos.precio !== undefined && !esPrenda)
       ) {
         if (variantesActuales.length !== 1) {
           throw new BadRequestException(
@@ -1003,13 +1315,19 @@ export class InventarioService {
           .set({
             existencia,
             stockMinimo: datos.stockMinimo ?? variante.variante.stockMinimo,
+            precio: esPrenda
+              ? variante.variante.precio
+              : datos.precio ?? variante.variante.precio,
           })
           .where(eq(variantesProductoInventario.id, variante.variante.id));
         if (diferencia !== 0) {
           await tx.insert(movimientosInventario).values({
             productoId: id,
             varianteId: variante.variante.id,
-            tallaNombre: variante.tallaNombre,
+            tallaNombre: this.etiquetaVariante(
+              variante.tallaNombre,
+              variante.colorNombre,
+            ),
             productoNombre: producto.nombre,
             usuarioId: usuario.id,
             tipo: diferencia > 0 ? 'Ingreso' : 'Salida',
@@ -1111,6 +1429,7 @@ export class InventarioService {
           variante: variantesProductoInventario,
           producto: productosInventario,
           tallaNombre: tallasInventario.nombre,
+          colorNombre: coloresInventario.nombre,
         })
         .from(variantesProductoInventario)
         .innerJoin(
@@ -1120,6 +1439,10 @@ export class InventarioService {
         .innerJoin(
           tallasInventario,
           eq(variantesProductoInventario.tallaId, tallasInventario.id),
+        )
+        .leftJoin(
+          coloresInventario,
+          eq(variantesProductoInventario.colorId, coloresInventario.id),
         )
         .where(
           and(
@@ -1151,7 +1474,10 @@ export class InventarioService {
         .values({
           productoId: detalle.producto.id,
           varianteId: detalle.variante.id,
-          tallaNombre: detalle.tallaNombre,
+          tallaNombre: this.etiquetaVariante(
+            detalle.tallaNombre,
+            detalle.colorNombre,
+          ),
           productoNombre: detalle.producto.nombre,
           usuarioId: usuario.id,
           tipo: datos.tipo,
@@ -1200,6 +1526,7 @@ export class InventarioService {
             producto: productosInventario,
             variante: variantesProductoInventario,
             tallaNombre: tallasInventario.nombre,
+            colorNombre: coloresInventario.nombre,
           })
           .from(variantesProductoInventario)
           .innerJoin(
@@ -1209,6 +1536,10 @@ export class InventarioService {
           .innerJoin(
             tallasInventario,
             eq(variantesProductoInventario.tallaId, tallasInventario.id),
+          )
+          .leftJoin(
+            coloresInventario,
+            eq(variantesProductoInventario.colorId, coloresInventario.id),
           )
           .where(
             and(
@@ -1226,7 +1557,7 @@ export class InventarioService {
         const precio =
           presentacion === 'CAJA'
             ? detalle.producto.precioCaja
-            : detalle.producto.precio;
+            : detalle.variante.precio;
         if (
           presentacion === 'CAJA' &&
           (unidadesPorPresentacion === null || precio === null)
@@ -1239,6 +1570,10 @@ export class InventarioService {
         const anterior = lineasPorClave.get(clave);
         lineasPorClave.set(clave, {
           ...detalle,
+          tallaNombre: this.etiquetaVariante(
+            detalle.tallaNombre,
+            detalle.colorNombre,
+          ),
           presentacion,
           unidadesPorPresentacion: unidadesPorPresentacion ?? 1,
           cantidad: (anterior?.cantidad ?? 0) + item.cantidad,
@@ -1269,9 +1604,13 @@ export class InventarioService {
           );
         }
       }
-      const total =
+      const subtotal =
         Math.round(items.reduce((sum, item) => sum + item.total, 0) * 100) /
         100;
+      const descuentoPorcentaje = datos.descuentoPorcentaje ?? 0;
+      const descuentoMonto =
+        Math.round(subtotal * descuentoPorcentaje) / 100;
+      const total = Math.round((subtotal - descuentoMonto) * 100) / 100;
       const abonoInicial = Math.round((datos.abonoInicial ?? 0) * 100) / 100;
       if (datos.metodoPago === 'Crédito') {
         if (abonoInicial > total) {
@@ -1295,6 +1634,9 @@ export class InventarioService {
           clienteId: cliente.id,
           usuarioId: usuario.id,
           metodoPago: datos.metodoPago,
+          subtotal,
+          descuentoPorcentaje,
+          descuentoMonto,
           total,
         })
         .returning();
@@ -1384,6 +1726,9 @@ export class InventarioService {
           }),
         ),
         payment: venta.metodoPago,
+        subtotal,
+        discountPercentage: descuentoPorcentaje,
+        discountAmount: descuentoMonto,
         total,
         paid: abonoInicial,
         paymentMethodInitial: datos.metodoAbonoInicial ?? 'Efectivo',
@@ -1458,6 +1803,7 @@ export class InventarioService {
             producto: productosInventario,
             variante: variantesProductoInventario,
             tallaNombre: tallasInventario.nombre,
+            colorNombre: coloresInventario.nombre,
           })
           .from(variantesProductoInventario)
           .innerJoin(
@@ -1467,6 +1813,10 @@ export class InventarioService {
           .innerJoin(
             tallasInventario,
             eq(variantesProductoInventario.tallaId, tallasInventario.id),
+          )
+          .leftJoin(
+            coloresInventario,
+            eq(variantesProductoInventario.colorId, coloresInventario.id),
           )
           .where(
             and(
@@ -1484,7 +1834,7 @@ export class InventarioService {
         const precio =
           presentacion === 'CAJA'
             ? detalle.producto.precioCaja
-            : detalle.producto.precio;
+            : detalle.variante.precio;
         if (
           presentacion === 'CAJA' &&
           (unidadesPorPresentacion === null || precio === null)
@@ -1497,6 +1847,10 @@ export class InventarioService {
         const anterior = lineasPorClave.get(clave);
         lineasPorClave.set(clave, {
           ...detalle,
+          tallaNombre: this.etiquetaVariante(
+            detalle.tallaNombre,
+            detalle.colorNombre,
+          ),
           presentacion,
           unidadesPorPresentacion: unidadesPorPresentacion ?? 1,
           cantidad: (anterior?.cantidad ?? 0) + item.cantidad,
@@ -1532,6 +1886,7 @@ export class InventarioService {
             producto: productosInventario,
             variante: variantesProductoInventario,
             tallaNombre: tallasInventario.nombre,
+            colorNombre: coloresInventario.nombre,
           })
           .from(variantesProductoInventario)
           .innerJoin(
@@ -1542,12 +1897,22 @@ export class InventarioService {
             tallasInventario,
             eq(variantesProductoInventario.tallaId, tallasInventario.id),
           )
+          .leftJoin(
+            coloresInventario,
+            eq(variantesProductoInventario.colorId, coloresInventario.id),
+          )
           .where(eq(variantesProductoInventario.id, varianteId))
           .limit(1);
         if (!detalle) {
           throw new NotFoundException(`Variante ${varianteId} no encontrada`);
         }
-        detalles.set(varianteId, detalle);
+        detalles.set(varianteId, {
+          ...detalle,
+          tallaNombre: this.etiquetaVariante(
+            detalle.tallaNombre,
+            detalle.colorNombre,
+          ),
+        });
         const cantidadAnterior = cantidadesAnteriores.get(varianteId) ?? 0;
         const cantidadNueva = cantidades.get(varianteId) ?? 0;
         if (!detalle.producto.activo && cantidadNueva > cantidadAnterior) {
@@ -1565,12 +1930,23 @@ export class InventarioService {
         existenciasNuevas.set(varianteId, existenciaDisponible - cantidadNueva);
       }
 
-      const total =
+      const subtotal =
         Math.round(items.reduce((sum, item) => sum + item.total, 0) * 100) /
         100;
+      const descuentoPorcentaje = datos.descuentoPorcentaje ?? 0;
+      const descuentoMonto =
+        Math.round(subtotal * descuentoPorcentaje) / 100;
+      const total = Math.round((subtotal - descuentoMonto) * 100) / 100;
       await tx
         .update(ventasInventario)
-        .set({ clienteId: cliente.id, metodoPago: datos.metodoPago, total })
+        .set({
+          clienteId: cliente.id,
+          metodoPago: datos.metodoPago,
+          subtotal,
+          descuentoPorcentaje,
+          descuentoMonto,
+          total,
+        })
         .where(eq(ventasInventario.id, id));
       await tx
         .delete(itemsVentaInventario)
@@ -1651,6 +2027,9 @@ export class InventarioService {
           }),
         ),
         payment: datos.metodoPago,
+        subtotal,
+        discountPercentage: descuentoPorcentaje,
+        discountAmount: descuentoMonto,
         total,
       };
     });
@@ -1665,6 +2044,9 @@ export class InventarioService {
         customerName: clientes.nombre,
         customerPhone: clientes.telefono,
         payment: ventasInventario.metodoPago,
+        subtotal: ventasInventario.subtotal,
+        discountPercentage: ventasInventario.descuentoPorcentaje,
+        discountAmount: ventasInventario.descuentoMonto,
         total: ventasInventario.total,
       })
       .from(ventasInventario)
@@ -1836,6 +2218,32 @@ export class InventarioService {
     return categoria;
   }
 
+  private esCategoria(nombre: string, esperada: string) {
+    const normalizada = nombre.trim().toLocaleLowerCase('es');
+    const singular = esperada.endsWith('s') ? esperada.slice(0, -1) : esperada;
+    return normalizada === singular || normalizada === `${singular}s`;
+  }
+
+  private validarPreciosPorTalla(
+    variantes: Array<{ tallaId: number; precio: number }>,
+  ): void {
+    const preciosPorTalla = new Map<number, number>();
+    for (const variante of variantes) {
+      const precioExistente = preciosPorTalla.get(variante.tallaId);
+      if (precioExistente !== undefined && precioExistente !== variante.precio) {
+        throw new BadRequestException(
+          'El precio debe ser igual para todos los colores de una misma talla',
+        );
+      }
+      preciosPorTalla.set(variante.tallaId, variante.precio);
+    }
+  }
+
+  private etiquetaVariante(talla: string, color: string | null) {
+    if (!color) return talla;
+    return talla === 'Única' ? color : `${talla} · ${color}`;
+  }
+
   private async obtenerProductosConVariantes() {
     const productos = await this.database.db
       .select({
@@ -1855,11 +2263,16 @@ export class InventarioService {
       .select({
         variante: variantesProductoInventario,
         tallaNombre: tallasInventario.nombre,
+        colorNombre: coloresInventario.nombre,
       })
       .from(variantesProductoInventario)
       .innerJoin(
         tallasInventario,
         eq(variantesProductoInventario.tallaId, tallasInventario.id),
+      )
+      .leftJoin(
+        coloresInventario,
+        eq(variantesProductoInventario.colorId, coloresInventario.id),
       )
       .where(
         inArray(
@@ -1867,29 +2280,39 @@ export class InventarioService {
           productos.map(({ producto }) => producto.id),
         ),
       )
-      .orderBy(tallasInventario.orden, tallasInventario.id);
+      .orderBy(
+        tallasInventario.orden,
+        tallasInventario.id,
+        variantesProductoInventario.colorId,
+      );
     const variantesPorProducto = new Map<
       number,
       Array<{
         id: number;
         tallaId: number;
+        colorId: number | null;
         size: string;
+        color: string | null;
         sku: string;
         barcode: string;
         stock: number;
         minStock: number;
+        price: number;
       }>
     >();
-    for (const { variante, tallaNombre } of variantes) {
+    for (const { variante, tallaNombre, colorNombre } of variantes) {
       const lista = variantesPorProducto.get(variante.productoId) ?? [];
       lista.push({
         id: variante.id,
         tallaId: variante.tallaId,
+        colorId: variante.colorId,
         size: tallaNombre,
+        color: colorNombre,
         sku: variante.sku,
         barcode: variante.codigoBarras,
         stock: variante.existencia,
         minStock: variante.stockMinimo,
+        price: variante.precio,
       });
       variantesPorProducto.set(variante.productoId, lista);
     }
@@ -1910,7 +2333,9 @@ export class InventarioService {
     variantes?: Array<{
       id: number;
       tallaId: number;
+      colorId: number | null;
       size: string;
+      color: string | null;
       sku: string;
       barcode: string;
       stock: number;
@@ -1927,18 +2352,29 @@ export class InventarioService {
           id: variantesProductoInventario.id,
           tallaId: variantesProductoInventario.tallaId,
           size: tallasInventario.nombre,
+          colorId: variantesProductoInventario.colorId,
+          color: coloresInventario.nombre,
           sku: variantesProductoInventario.sku,
           barcode: variantesProductoInventario.codigoBarras,
           stock: variantesProductoInventario.existencia,
           minStock: variantesProductoInventario.stockMinimo,
+          price: variantesProductoInventario.precio,
         })
         .from(variantesProductoInventario)
         .innerJoin(
           tallasInventario,
           eq(variantesProductoInventario.tallaId, tallasInventario.id),
         )
+        .leftJoin(
+          coloresInventario,
+          eq(variantesProductoInventario.colorId, coloresInventario.id),
+        )
         .where(eq(variantesProductoInventario.productoId, producto.id))
-        .orderBy(tallasInventario.orden, tallasInventario.id));
+        .orderBy(
+          tallasInventario.orden,
+          tallasInventario.id,
+          variantesProductoInventario.colorId,
+        ));
     return {
       id: producto.id,
       name: producto.nombre,

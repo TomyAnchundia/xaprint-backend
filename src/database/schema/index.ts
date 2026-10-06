@@ -5,6 +5,7 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
 
 export const usuarios = sqliteTable('usuarios', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -50,6 +51,14 @@ export const tallasInventario = sqliteTable('tallas_inventario', {
     .$defaultFn(() => new Date()),
 });
 
+export const coloresInventario = sqliteTable('colores_inventario', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  nombre: text('nombre').notNull().unique(),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 export const productosInventario = sqliteTable('productos_inventario', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   nombre: text('nombre').notNull(),
@@ -82,16 +91,20 @@ export const variantesProductoInventario = sqliteTable(
     tallaId: integer('talla_id')
       .notNull()
       .references(() => tallasInventario.id),
+    colorId: integer('color_id').references(() => coloresInventario.id),
     sku: text('sku').notNull().unique(),
     codigoBarras: text('codigo_barras').notNull().unique(),
     existencia: integer('existencia').notNull().default(0),
     stockMinimo: integer('stock_minimo').notNull().default(0),
+    precio: real('precio').notNull().default(0),
   },
   (table) => [
-    uniqueIndex('uq_variantes_producto_talla').on(
-      table.productoId,
-      table.tallaId,
-    ),
+    uniqueIndex('uq_variantes_producto_talla_sin_color')
+      .on(table.productoId, table.tallaId)
+      .where(sql`${table.colorId} IS NULL`),
+    uniqueIndex('uq_variantes_producto_talla_color')
+      .on(table.productoId, table.tallaId, table.colorId)
+      .where(sql`${table.colorId} IS NOT NULL`),
   ],
 );
 
@@ -104,6 +117,9 @@ export const ventasInventario = sqliteTable('ventas_inventario', {
     .notNull()
     .references(() => usuariosInventario.id),
   metodoPago: text('metodo_pago').notNull(),
+  subtotal: real('subtotal').notNull().default(0),
+  descuentoPorcentaje: real('descuento_porcentaje').notNull().default(0),
+  descuentoMonto: real('descuento_monto').notNull().default(0),
   total: real('total').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()

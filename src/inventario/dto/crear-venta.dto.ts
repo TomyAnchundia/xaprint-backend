@@ -48,6 +48,12 @@ export class CrearVentaDto {
   abonoInicial?: number;
 
   @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  descuentoPorcentaje?: number;
+
+  @IsOptional()
   @IsIn(['Efectivo', 'Transferencia', 'Tarjeta'])
   metodoAbonoInicial?: string;
 

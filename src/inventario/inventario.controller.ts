@@ -25,6 +25,7 @@ import { CrearProductoDto } from './dto/crear-producto.dto';
 import { CrearCategoriaDto } from './dto/crear-categoria.dto';
 import { CrearAbonoInventarioDto } from './dto/crear-abono-inventario.dto';
 import { CrearTallaDto } from './dto/crear-talla.dto';
+import { CrearColorDto } from './dto/crear-color.dto';
 import { CrearUsuarioInventarioDto } from './dto/crear-usuario-inventario.dto';
 import { CrearVentaDto } from './dto/crear-venta.dto';
 import { LoginInventarioDto } from './dto/login-inventario.dto';
@@ -128,6 +129,54 @@ export class InventarioController {
   @Roles('ADMIN')
   crearTalla(@Body() datos: CrearTallaDto) {
     return this.notificarCambio(this.inventarioService.crearTalla(datos));
+  }
+
+  @Patch('tallas/:id')
+  @UseGuards(InventarioAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  actualizarTalla(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() datos: CrearTallaDto,
+  ) {
+    return this.notificarCambio(this.inventarioService.actualizarTalla(id, datos));
+  }
+
+  @Delete('tallas/:id')
+  @UseGuards(InventarioAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  eliminarTalla(@Param('id', ParseIntPipe) id: number) {
+    return this.notificarCambio(this.inventarioService.eliminarTalla(id));
+  }
+
+  @Get('colores')
+  @UseGuards(InventarioAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  obtenerColores() {
+    return this.inventarioService.obtenerColores();
+  }
+
+  @Post('colores')
+  @UseGuards(InventarioAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  crearColor(@Body() datos: CrearColorDto) {
+    return this.notificarCambio(this.inventarioService.crearColor(datos));
+  }
+
+  @Patch('colores/:id')
+  @UseGuards(InventarioAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  actualizarColor(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() datos: CrearColorDto,
+  ) {
+    return this.notificarCambio(this.inventarioService.actualizarColor(id, datos));
+  }
+
+  @Delete('colores/:id')
+  @UseGuards(InventarioAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  eliminarColor(@Param('id', ParseIntPipe) id: number) {
+    return this.notificarCambio(this.inventarioService.eliminarColor(id));
   }
 
   @Get('clientes')

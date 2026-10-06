@@ -1,0 +1,2095 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "42cbabfc-c4d8-4a0f-952d-5bb4d18f396b",
+  "prevIds": [
+    "e88110e2-88f5-4cd2-828f-4029701507ab"
+  ],
+  "ddl": [
+    {
+      "name": "abonos_ventas_inventario",
+      "entityType": "tables"
+    },
+    {
+      "name": "categorias_inventario",
+      "entityType": "tables"
+    },
+    {
+      "name": "clientes",
+      "entityType": "tables"
+    },
+    {
+      "name": "colores_inventario",
+      "entityType": "tables"
+    },
+    {
+      "name": "historial_pedidos",
+      "entityType": "tables"
+    },
+    {
+      "name": "items_venta_inventario",
+      "entityType": "tables"
+    },
+    {
+      "name": "movimientos_inventario",
+      "entityType": "tables"
+    },
+    {
+      "name": "pagos",
+      "entityType": "tables"
+    },
+    {
+      "name": "pagos_desarrollador",
+      "entityType": "tables"
+    },
+    {
+      "name": "pagos_pedidos",
+      "entityType": "tables"
+    },
+    {
+      "name": "pedidos",
+      "entityType": "tables"
+    },
+    {
+      "name": "productos_inventario",
+      "entityType": "tables"
+    },
+    {
+      "name": "tallas_inventario",
+      "entityType": "tables"
+    },
+    {
+      "name": "tarifas",
+      "entityType": "tables"
+    },
+    {
+      "name": "usuarios",
+      "entityType": "tables"
+    },
+    {
+      "name": "usuarios_inventario",
+      "entityType": "tables"
+    },
+    {
+      "name": "variantes_producto_inventario",
+      "entityType": "tables"
+    },
+    {
+      "name": "ventas_inventario",
+      "entityType": "tables"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "abonos_ventas_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "venta_id",
+      "entityType": "columns",
+      "table": "abonos_ventas_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cliente_id",
+      "entityType": "columns",
+      "table": "abonos_ventas_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "usuario_id",
+      "entityType": "columns",
+      "table": "abonos_ventas_inventario"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "monto",
+      "entityType": "columns",
+      "table": "abonos_ventas_inventario"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "metodo_pago",
+      "entityType": "columns",
+      "table": "abonos_ventas_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "abonos_ventas_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "categorias_inventario"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "nombre",
+      "entityType": "columns",
+      "table": "categorias_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "categorias_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "clientes"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "nombre",
+      "entityType": "columns",
+      "table": "clientes"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "telefono",
+      "entityType": "columns",
+      "table": "clientes"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cedula",
+      "entityType": "columns",
+      "table": "clientes"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "direccion",
+      "entityType": "columns",
+      "table": "clientes"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "colores_inventario"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "nombre",
+      "entityType": "columns",
+      "table": "colores_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "colores_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "historial_pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "pedido_id",
+      "entityType": "columns",
+      "table": "historial_pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "usuario_id",
+      "entityType": "columns",
+      "table": "historial_pedidos"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "estado_anterior",
+      "entityType": "columns",
+      "table": "historial_pedidos"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "estado_nuevo",
+      "entityType": "columns",
+      "table": "historial_pedidos"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "estado_pago_anterior",
+      "entityType": "columns",
+      "table": "historial_pedidos"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "estado_pago_nuevo",
+      "entityType": "columns",
+      "table": "historial_pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "historial_pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "items_venta_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "venta_id",
+      "entityType": "columns",
+      "table": "items_venta_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "producto_id",
+      "entityType": "columns",
+      "table": "items_venta_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "variante_id",
+      "entityType": "columns",
+      "table": "items_venta_inventario"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'Única'",
+      "generated": null,
+      "name": "talla_nombre",
+      "entityType": "columns",
+      "table": "items_venta_inventario"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'UNIDAD'",
+      "generated": null,
+      "name": "presentacion",
+      "entityType": "columns",
+      "table": "items_venta_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "1",
+      "generated": null,
+      "name": "unidades_por_presentacion",
+      "entityType": "columns",
+      "table": "items_venta_inventario"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "producto_nombre",
+      "entityType": "columns",
+      "table": "items_venta_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cantidad",
+      "entityType": "columns",
+      "table": "items_venta_inventario"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "precio",
+      "entityType": "columns",
+      "table": "items_venta_inventario"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "total",
+      "entityType": "columns",
+      "table": "items_venta_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "movimientos_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "producto_id",
+      "entityType": "columns",
+      "table": "movimientos_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "variante_id",
+      "entityType": "columns",
+      "table": "movimientos_inventario"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'Única'",
+      "generated": null,
+      "name": "talla_nombre",
+      "entityType": "columns",
+      "table": "movimientos_inventario"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "producto_nombre",
+      "entityType": "columns",
+      "table": "movimientos_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "usuario_id",
+      "entityType": "columns",
+      "table": "movimientos_inventario"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "tipo",
+      "entityType": "columns",
+      "table": "movimientos_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cantidad",
+      "entityType": "columns",
+      "table": "movimientos_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "movimientos_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "pagos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cliente_id",
+      "entityType": "columns",
+      "table": "pagos"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "monto",
+      "entityType": "columns",
+      "table": "pagos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "usuario_id",
+      "entityType": "columns",
+      "table": "pagos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "pagos"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "pagos_desarrollador"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "periodo",
+      "entityType": "columns",
+      "table": "pagos_desarrollador"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "monto",
+      "entityType": "columns",
+      "table": "pagos_desarrollador"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "usuario_id",
+      "entityType": "columns",
+      "table": "pagos_desarrollador"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "pagos_desarrollador"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "pagos_pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "pago_id",
+      "entityType": "columns",
+      "table": "pagos_pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "pedido_id",
+      "entityType": "columns",
+      "table": "pagos_pedidos"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "monto",
+      "entityType": "columns",
+      "table": "pagos_pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cliente_id",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'REVISION'",
+      "generated": null,
+      "name": "estado",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'NO_PAGADO'",
+      "generated": null,
+      "name": "estado_pago",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "prioridad",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "servicio",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ancho",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "largo",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "precio_calculado",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "precio_especial",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "aporte_desarrollador",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "valor_cobrar",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "costo_diseno",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "precio_especial_usuario_id",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "precio_especial_fecha",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "contraer",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "velocidad",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "obturacion",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "observaciones",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "fecha_entrega",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "pedidos"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "productos_inventario"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "nombre",
+      "entityType": "columns",
+      "table": "productos_inventario"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "sku",
+      "entityType": "columns",
+      "table": "productos_inventario"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "codigo_barras",
+      "entityType": "columns",
+      "table": "productos_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "categoria_id",
+      "entityType": "columns",
+      "table": "productos_inventario"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "precio",
+      "entityType": "columns",
+      "table": "productos_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "unidades_por_caja",
+      "entityType": "columns",
+      "table": "productos_inventario"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "precio_caja",
+      "entityType": "columns",
+      "table": "productos_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "existencia",
+      "entityType": "columns",
+      "table": "productos_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "stock_minimo",
+      "entityType": "columns",
+      "table": "productos_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "true",
+      "generated": null,
+      "name": "activo",
+      "entityType": "columns",
+      "table": "productos_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "productos_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "productos_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "tallas_inventario"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "nombre",
+      "entityType": "columns",
+      "table": "tallas_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "orden",
+      "entityType": "columns",
+      "table": "tallas_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "tallas_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "tarifas"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "servicio",
+      "entityType": "columns",
+      "table": "tarifas"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ancho",
+      "entityType": "columns",
+      "table": "tarifas"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "desde",
+      "entityType": "columns",
+      "table": "tarifas"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "hasta",
+      "entityType": "columns",
+      "table": "tarifas"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "precio",
+      "entityType": "columns",
+      "table": "tarifas"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "true",
+      "generated": null,
+      "name": "activo",
+      "entityType": "columns",
+      "table": "tarifas"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "tarifas"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "tarifas"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "usuarios"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "username",
+      "entityType": "columns",
+      "table": "usuarios"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "password",
+      "entityType": "columns",
+      "table": "usuarios"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "'EMPLEADO'",
+      "generated": null,
+      "name": "rol",
+      "entityType": "columns",
+      "table": "usuarios"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "'TEXTIL31'",
+      "generated": null,
+      "name": "area",
+      "entityType": "columns",
+      "table": "usuarios"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "usuarios_inventario"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "username",
+      "entityType": "columns",
+      "table": "usuarios_inventario"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "password",
+      "entityType": "columns",
+      "table": "usuarios_inventario"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'NORMAL'",
+      "generated": null,
+      "name": "rol",
+      "entityType": "columns",
+      "table": "usuarios_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "usuarios_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "variantes_producto_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "producto_id",
+      "entityType": "columns",
+      "table": "variantes_producto_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "talla_id",
+      "entityType": "columns",
+      "table": "variantes_producto_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "color_id",
+      "entityType": "columns",
+      "table": "variantes_producto_inventario"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "sku",
+      "entityType": "columns",
+      "table": "variantes_producto_inventario"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "codigo_barras",
+      "entityType": "columns",
+      "table": "variantes_producto_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "existencia",
+      "entityType": "columns",
+      "table": "variantes_producto_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "stock_minimo",
+      "entityType": "columns",
+      "table": "variantes_producto_inventario"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "precio",
+      "entityType": "columns",
+      "table": "variantes_producto_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "ventas_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cliente_id",
+      "entityType": "columns",
+      "table": "ventas_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "usuario_id",
+      "entityType": "columns",
+      "table": "ventas_inventario"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "metodo_pago",
+      "entityType": "columns",
+      "table": "ventas_inventario"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "subtotal",
+      "entityType": "columns",
+      "table": "ventas_inventario"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "descuento_porcentaje",
+      "entityType": "columns",
+      "table": "ventas_inventario"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "descuento_monto",
+      "entityType": "columns",
+      "table": "ventas_inventario"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "total",
+      "entityType": "columns",
+      "table": "ventas_inventario"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "ventas_inventario"
+    },
+    {
+      "columns": [
+        "venta_id"
+      ],
+      "tableTo": "ventas_inventario",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_abonos_ventas_inventario_venta_id_ventas_inventario_id_fk",
+      "entityType": "fks",
+      "table": "abonos_ventas_inventario"
+    },
+    {
+      "columns": [
+        "cliente_id"
+      ],
+      "tableTo": "clientes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_abonos_ventas_inventario_cliente_id_clientes_id_fk",
+      "entityType": "fks",
+      "table": "abonos_ventas_inventario"
+    },
+    {
+      "columns": [
+        "usuario_id"
+      ],
+      "tableTo": "usuarios_inventario",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_abonos_ventas_inventario_usuario_id_usuarios_inventario_id_fk",
+      "entityType": "fks",
+      "table": "abonos_ventas_inventario"
+    },
+    {
+      "columns": [
+        "pedido_id"
+      ],
+      "tableTo": "pedidos",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_historial_pedidos_pedido_id_pedidos_id_fk",
+      "entityType": "fks",
+      "table": "historial_pedidos"
+    },
+    {
+      "columns": [
+        "usuario_id"
+      ],
+      "tableTo": "usuarios",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_historial_pedidos_usuario_id_usuarios_id_fk",
+      "entityType": "fks",
+      "table": "historial_pedidos"
+    },
+    {
+      "columns": [
+        "venta_id"
+      ],
+      "tableTo": "ventas_inventario",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_items_venta_inventario_venta_id_ventas_inventario_id_fk",
+      "entityType": "fks",
+      "table": "items_venta_inventario"
+    },
+    {
+      "columns": [
+        "producto_id"
+      ],
+      "tableTo": "productos_inventario",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_items_venta_inventario_producto_id_productos_inventario_id_fk",
+      "entityType": "fks",
+      "table": "items_venta_inventario"
+    },
+    {
+      "columns": [
+        "variante_id"
+      ],
+      "tableTo": "variantes_producto_inventario",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_items_venta_inventario_variante_id_variantes_producto_inventario_id_fk",
+      "entityType": "fks",
+      "table": "items_venta_inventario"
+    },
+    {
+      "columns": [
+        "producto_id"
+      ],
+      "tableTo": "productos_inventario",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_movimientos_inventario_producto_id_productos_inventario_id_fk",
+      "entityType": "fks",
+      "table": "movimientos_inventario"
+    },
+    {
+      "columns": [
+        "variante_id"
+      ],
+      "tableTo": "variantes_producto_inventario",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_movimientos_inventario_variante_id_variantes_producto_inventario_id_fk",
+      "entityType": "fks",
+      "table": "movimientos_inventario"
+    },
+    {
+      "columns": [
+        "usuario_id"
+      ],
+      "tableTo": "usuarios_inventario",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_movimientos_inventario_usuario_id_usuarios_inventario_id_fk",
+      "entityType": "fks",
+      "table": "movimientos_inventario"
+    },
+    {
+      "columns": [
+        "cliente_id"
+      ],
+      "tableTo": "clientes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_pagos_cliente_id_clientes_id_fk",
+      "entityType": "fks",
+      "table": "pagos"
+    },
+    {
+      "columns": [
+        "usuario_id"
+      ],
+      "tableTo": "usuarios",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_pagos_usuario_id_usuarios_id_fk",
+      "entityType": "fks",
+      "table": "pagos"
+    },
+    {
+      "columns": [
+        "usuario_id"
+      ],
+      "tableTo": "usuarios",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_pagos_desarrollador_usuario_id_usuarios_id_fk",
+      "entityType": "fks",
+      "table": "pagos_desarrollador"
+    },
+    {
+      "columns": [
+        "pago_id"
+      ],
+      "tableTo": "pagos",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_pagos_pedidos_pago_id_pagos_id_fk",
+      "entityType": "fks",
+      "table": "pagos_pedidos"
+    },
+    {
+      "columns": [
+        "pedido_id"
+      ],
+      "tableTo": "pedidos",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_pagos_pedidos_pedido_id_pedidos_id_fk",
+      "entityType": "fks",
+      "table": "pagos_pedidos"
+    },
+    {
+      "columns": [
+        "cliente_id"
+      ],
+      "tableTo": "clientes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_pedidos_cliente_id_clientes_id_fk",
+      "entityType": "fks",
+      "table": "pedidos"
+    },
+    {
+      "columns": [
+        "precio_especial_usuario_id"
+      ],
+      "tableTo": "usuarios",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_pedidos_precio_especial_usuario_id_usuarios_id_fk",
+      "entityType": "fks",
+      "table": "pedidos"
+    },
+    {
+      "columns": [
+        "categoria_id"
+      ],
+      "tableTo": "categorias_inventario",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_productos_inventario_categoria_id_categorias_inventario_id_fk",
+      "entityType": "fks",
+      "table": "productos_inventario"
+    },
+    {
+      "columns": [
+        "producto_id"
+      ],
+      "tableTo": "productos_inventario",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_variantes_producto_inventario_producto_id_productos_inventario_id_fk",
+      "entityType": "fks",
+      "table": "variantes_producto_inventario"
+    },
+    {
+      "columns": [
+        "talla_id"
+      ],
+      "tableTo": "tallas_inventario",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_variantes_producto_inventario_talla_id_tallas_inventario_id_fk",
+      "entityType": "fks",
+      "table": "variantes_producto_inventario"
+    },
+    {
+      "columns": [
+        "color_id"
+      ],
+      "tableTo": "colores_inventario",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_variantes_producto_inventario_color_id_colores_inventario_id_fk",
+      "entityType": "fks",
+      "table": "variantes_producto_inventario"
+    },
+    {
+      "columns": [
+        "cliente_id"
+      ],
+      "tableTo": "clientes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_ventas_inventario_cliente_id_clientes_id_fk",
+      "entityType": "fks",
+      "table": "ventas_inventario"
+    },
+    {
+      "columns": [
+        "usuario_id"
+      ],
+      "tableTo": "usuarios_inventario",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_ventas_inventario_usuario_id_usuarios_inventario_id_fk",
+      "entityType": "fks",
+      "table": "ventas_inventario"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "abonos_ventas_inventario_pk",
+      "table": "abonos_ventas_inventario",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "categorias_inventario_pk",
+      "table": "categorias_inventario",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "clientes_pk",
+      "table": "clientes",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "colores_inventario_pk",
+      "table": "colores_inventario",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "historial_pedidos_pk",
+      "table": "historial_pedidos",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "items_venta_inventario_pk",
+      "table": "items_venta_inventario",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "movimientos_inventario_pk",
+      "table": "movimientos_inventario",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "pagos_pk",
+      "table": "pagos",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "pagos_desarrollador_pk",
+      "table": "pagos_desarrollador",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "pagos_pedidos_pk",
+      "table": "pagos_pedidos",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "pedidos_pk",
+      "table": "pedidos",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "productos_inventario_pk",
+      "table": "productos_inventario",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "tallas_inventario_pk",
+      "table": "tallas_inventario",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "tarifas_pk",
+      "table": "tarifas",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "usuarios_pk",
+      "table": "usuarios",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "usuarios_inventario_pk",
+      "table": "usuarios_inventario",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "variantes_producto_inventario_pk",
+      "table": "variantes_producto_inventario",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "ventas_inventario_pk",
+      "table": "ventas_inventario",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        {
+          "value": "producto_id",
+          "isExpression": false
+        },
+        {
+          "value": "talla_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": "\"variantes_producto_inventario\".\"color_id\" IS NULL",
+      "origin": "manual",
+      "name": "uq_variantes_producto_talla_sin_color",
+      "entityType": "indexes",
+      "table": "variantes_producto_inventario"
+    },
+    {
+      "columns": [
+        {
+          "value": "producto_id",
+          "isExpression": false
+        },
+        {
+          "value": "talla_id",
+          "isExpression": false
+        },
+        {
+          "value": "color_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": "\"variantes_producto_inventario\".\"color_id\" IS NOT NULL",
+      "origin": "manual",
+      "name": "uq_variantes_producto_talla_color",
+      "entityType": "indexes",
+      "table": "variantes_producto_inventario"
+    },
+    {
+      "columns": [
+        "nombre"
+      ],
+      "nameExplicit": false,
+      "name": "categorias_inventario_nombre_unique",
+      "entityType": "uniques",
+      "table": "categorias_inventario"
+    },
+    {
+      "columns": [
+        "telefono"
+      ],
+      "nameExplicit": false,
+      "name": "clientes_telefono_unique",
+      "entityType": "uniques",
+      "table": "clientes"
+    },
+    {
+      "columns": [
+        "nombre"
+      ],
+      "nameExplicit": false,
+      "name": "colores_inventario_nombre_unique",
+      "entityType": "uniques",
+      "table": "colores_inventario"
+    },
+    {
+      "columns": [
+        "sku"
+      ],
+      "nameExplicit": false,
+      "name": "productos_inventario_sku_unique",
+      "entityType": "uniques",
+      "table": "productos_inventario"
+    },
+    {
+      "columns": [
+        "codigo_barras"
+      ],
+      "nameExplicit": false,
+      "name": "productos_inventario_codigo_barras_unique",
+      "entityType": "uniques",
+      "table": "productos_inventario"
+    },
+    {
+      "columns": [
+        "nombre"
+      ],
+      "nameExplicit": false,
+      "name": "tallas_inventario_nombre_unique",
+      "entityType": "uniques",
+      "table": "tallas_inventario"
+    },
+    {
+      "columns": [
+        "username"
+      ],
+      "nameExplicit": false,
+      "name": "usuarios_username_unique",
+      "entityType": "uniques",
+      "table": "usuarios"
+    },
+    {
+      "columns": [
+        "username"
+      ],
+      "nameExplicit": false,
+      "name": "usuarios_inventario_username_unique",
+      "entityType": "uniques",
+      "table": "usuarios_inventario"
+    },
+    {
+      "columns": [
+        "sku"
+      ],
+      "nameExplicit": false,
+      "name": "variantes_producto_inventario_sku_unique",
+      "entityType": "uniques",
+      "table": "variantes_producto_inventario"
+    },
+    {
+      "columns": [
+        "codigo_barras"
+      ],
+      "nameExplicit": false,
+      "name": "variantes_producto_inventario_codigo_barras_unique",
+      "entityType": "uniques",
+      "table": "variantes_producto_inventario"
+    }
+  ],
+  "renames": []
+}

@@ -17,6 +17,11 @@ export class VarianteProductoDto {
   @Min(1)
   tallaId!: number;
 
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  colorId?: number;
+
   @IsInt()
   @Min(0)
   @Max(2147483647)
@@ -27,6 +32,11 @@ export class VarianteProductoDto {
   @Min(0)
   @Max(2147483647)
   stockMinimo?: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  precio?: number;
 }
 
 export class CrearProductoDto {
