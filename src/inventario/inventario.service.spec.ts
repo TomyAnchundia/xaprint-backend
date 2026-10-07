@@ -222,11 +222,43 @@ describe('InventarioService', () => {
       categoryId: categoria.id,
       category: 'Prueba',
     });
+    expect(producto.variants[0].barcode).toMatch(/^pp-u-\d{4}$/);
+    const categorias = await service.obtenerCategorias();
+    const categoriaPrenda =
+      categorias.find((item) => item.nombre === 'Prenda') ??
+      (await service.crearCategoria({ nombre: 'Prenda' }));
+    const tallas = await service.obtenerTallas();
+    const tallaS =
+      tallas.find((item) => item.nombre === 'S') ??
+      (await service.crearTalla({ nombre: 'S' }));
+    const colores = await service.obtenerColores();
+    const colorNegro =
+      colores.find((item) => item.nombre === 'Negro') ??
+      (await service.crearColor({ nombre: 'Negro' }));
+    const camisa = await service.crearProducto(
+      {
+        nombre: 'Camisas calidad media',
+        categoriaId: categoriaPrenda.id,
+        precio: 12,
+        variantes: [
+          {
+            tallaId: tallaS.id,
+            colorId: colorNegro.id,
+            existencia: 5,
+          },
+        ],
+      },
+      admin,
+    );
+    expect(camisa.variants[0].barcode).toMatch(/^ccm-n-s-\d{4}$/);
     await expect(service.eliminarCategoria(categoria.id)).rejects.toThrow(
       'No se puede eliminar la categoría',
     );
     await service.actualizarCategoria(categoria.id, { nombre: 'Revisada' });
-    expect((await service.obtenerProductos())[0].category).toBe('Revisada');
+    expect(
+      (await service.obtenerProductos()).find((item) => item.id === producto.id)
+        ?.category,
+    ).toBe('Revisada');
     const venta = await service.crearVenta(
       {
         clienteId: cliente.id,
@@ -237,7 +269,10 @@ describe('InventarioService', () => {
     );
 
     expect(venta).toMatchObject({ id: 'V-1', total: 7.5 });
-    expect((await service.obtenerProductos())[0].stock).toBe(7);
+    expect(
+      (await service.obtenerProductos()).find((item) => item.id === producto.id)
+        ?.stock,
+    ).toBe(7);
     expect((await service.obtenerVentas()).length).toBe(1);
     await expect(service.eliminarCliente(cliente.id)).rejects.toThrow(
       'No se puede eliminar un cliente con pedidos, pagos o ventas registrados',
@@ -271,7 +306,10 @@ describe('InventarioService', () => {
       total: 9.5,
       payment: 'Transferencia',
     });
-    expect((await service.obtenerProductos())[0].stock).toBe(6);
+    expect(
+      (await service.obtenerProductos()).find((item) => item.id === producto.id)
+        ?.stock,
+    ).toBe(6);
     expect((await service.obtenerVentas())[0].items[0].quantity).toBe(4);
     expect((await service.obtenerVentas())[0]).toMatchObject({
       subtotal: 10,
@@ -292,7 +330,6 @@ describe('InventarioService', () => {
     await expect(
       service.eliminarTalla(tallaTemporal.id),
     ).resolves.toMatchObject({ eliminado: true });
-    const categoriaPrenda = await service.crearCategoria({ nombre: 'Prenda' });
     await expect(service.crearTalla({ nombre: 'm' })).rejects.toThrow(
       'La talla ya existe',
     );

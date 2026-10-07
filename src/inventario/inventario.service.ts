@@ -1004,6 +1004,17 @@ export class InventarioService {
           )
           .where(eq(tallasInventario.id, varianteDatos.tallaId))
           .limit(1);
+        await tx
+          .update(variantesProductoInventario)
+          .set({
+            codigoBarras: this.generarCodigoBarrasVariante(
+              datos.nombre,
+              atributos.color,
+              atributos.talla,
+              variante.id,
+            ),
+          })
+          .where(eq(variantesProductoInventario.id, variante.id));
         if (variante.existencia > 0) {
           await tx.insert(movimientosInventario).values({
             productoId: productoCreado.id,
@@ -1255,6 +1266,17 @@ export class InventarioService {
                   : datos.precio ?? producto.precio,
               })
               .returning();
+            await tx
+              .update(variantesProductoInventario)
+              .set({
+                codigoBarras: this.generarCodigoBarrasVariante(
+                  producto.nombre,
+                  atributos.color,
+                  atributos.talla,
+                  variante.id,
+                ),
+              })
+              .where(eq(variantesProductoInventario.id, variante.id));
             if (variante.existencia > 0) {
               await tx.insert(movimientosInventario).values({
                 productoId: id,
@@ -2295,11 +2317,15 @@ export class InventarioService {
         color: string | null;
         sku: string;
         barcode: string;
+        legacyBarcode: string;
         stock: number;
         minStock: number;
         price: number;
       }>
     >();
+    const nombreProductoPorId = new Map(
+      productos.map(({ producto }) => [producto.id, producto.nombre]),
+    );
     for (const { variante, tallaNombre, colorNombre } of variantes) {
       const lista = variantesPorProducto.get(variante.productoId) ?? [];
       lista.push({
@@ -2309,7 +2335,13 @@ export class InventarioService {
         size: tallaNombre,
         color: colorNombre,
         sku: variante.sku,
-        barcode: variante.codigoBarras,
+        barcode: this.generarCodigoBarrasVariante(
+          nombreProductoPorId.get(variante.productoId) ?? '',
+          colorNombre,
+          tallaNombre,
+          variante.id,
+        ),
+        legacyBarcode: variante.codigoBarras,
         stock: variante.existencia,
         minStock: variante.stockMinimo,
         price: variante.precio,
@@ -2338,6 +2370,7 @@ export class InventarioService {
       color: string | null;
       sku: string;
       barcode: string;
+      legacyBarcode?: string;
       stock: number;
       minStock: number;
     }>,
@@ -2375,6 +2408,16 @@ export class InventarioService {
           tallasInventario.id,
           variantesProductoInventario.colorId,
         ));
+    const variantesConCodigoCorto = variantesProducto.map((variante) => ({
+      ...variante,
+      barcode: this.generarCodigoBarrasVariante(
+        producto.nombre,
+        variante.color,
+        variante.size,
+        variante.id,
+      ),
+      legacyBarcode: variante.legacyBarcode ?? variante.barcode,
+    }));
     return {
       id: producto.id,
       name: producto.nombre,
@@ -2393,8 +2436,50 @@ export class InventarioService {
         (total, variante) => total + variante.minStock,
         0,
       ),
-      variants: variantesProducto,
+      variants: variantesConCodigoCorto,
     };
+  }
+
+  private generarCodigoBarrasVariante(
+    nombreProducto: string,
+    color: string | null,
+    talla: string,
+    varianteId: number,
+  ) {
+    const normalizar = (valor: string) =>
+      valor
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .match(/[a-z0-9]+/g) ?? [];
+    const palabrasIgnoradas = new Set(['de', 'del', 'la', 'las', 'el', 'los', 'y']);
+    const palabrasProducto = normalizar(nombreProducto).filter(
+      (palabra) => !palabrasIgnoradas.has(palabra),
+    );
+    const codigoProducto =
+      palabrasProducto.length > 1
+        ? palabrasProducto
+            .slice(0, 3)
+            .map((palabra) => palabra[0])
+            .join('')
+        : (palabrasProducto[0] ?? 'p').slice(0, 3);
+    const codigoAtributo = (valor: string) => {
+      const palabras = normalizar(valor);
+      return palabras.length > 1
+        ? palabras
+            .slice(0, 2)
+            .map((palabra) => palabra[0])
+            .join('')
+        : (palabras[0] ?? 'x')[0];
+    };
+    const partes = [
+      codigoProducto,
+      ...(color ? [codigoAtributo(color)] : []),
+      codigoAtributo(talla),
+      String(varianteId).padStart(4, '0'),
+    ];
+
+    return partes.join('-');
   }
 
   private validarConfiguracionCaja(

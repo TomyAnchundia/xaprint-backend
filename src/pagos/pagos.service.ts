@@ -160,9 +160,9 @@ export class PagosService {
       if (!pedido) {
         throw new NotFoundException('Pedido no encontrado');
       }
-      if (pedido.estado !== 'ENTREGADO') {
+      if (pedido.estado === 'CANCELADO') {
         throw new BadRequestException(
-          'Solo se puede registrar el pago de un pedido entregado',
+          'No se puede registrar el pago de un pedido cancelado',
         );
       }
 
