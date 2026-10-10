@@ -31,6 +31,7 @@ export class PreciosController {
       dto.ancho,
       dto.largo,
       dto.costoDiseno ?? 0,
+      dto.clienteId,
     );
   }
 }

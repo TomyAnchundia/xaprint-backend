@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -13,6 +14,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { TarifasService, ServicioTarifa } from './tarifas.service';
+import { ActivarTarifaEspecialDto } from './dto/activar-tarifa-especial.dto';
+import { GuardarTarifaClienteDto } from './dto/guardar-tarifa-cliente.dto';
 
 @Controller('tarifas')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -23,6 +26,51 @@ export class TarifasController {
   @Get()
   listar() {
     return this.tarifasService.listar();
+  }
+
+  @Get('clientes/:clienteId')
+  listarDeCliente(@Param('clienteId', ParseIntPipe) clienteId: number) {
+    return this.tarifasService.listarDeCliente(clienteId);
+  }
+
+  @Patch('clientes/:clienteId/especial')
+  establecerClienteEspecial(
+    @Param('clienteId', ParseIntPipe) clienteId: number,
+    @Body() body: ActivarTarifaEspecialDto,
+  ) {
+    return this.tarifasService.establecerClienteEspecial(
+      clienteId,
+      body.activo,
+    );
+  }
+
+  @Post('clientes/:clienteId')
+  crearParaCliente(
+    @Param('clienteId', ParseIntPipe) clienteId: number,
+    @Body() body: GuardarTarifaClienteDto,
+  ) {
+    return this.tarifasService.crearParaCliente(clienteId, body);
+  }
+
+  @Patch('clientes/:clienteId/:tarifaId')
+  actualizarParaCliente(
+    @Param('clienteId', ParseIntPipe) clienteId: number,
+    @Param('tarifaId', ParseIntPipe) tarifaId: number,
+    @Body() body: GuardarTarifaClienteDto,
+  ) {
+    return this.tarifasService.actualizarParaCliente(
+      clienteId,
+      tarifaId,
+      body,
+    );
+  }
+
+  @Delete('clientes/:clienteId/:tarifaId')
+  eliminarParaCliente(
+    @Param('clienteId', ParseIntPipe) clienteId: number,
+    @Param('tarifaId', ParseIntPipe) tarifaId: number,
+  ) {
+    return this.tarifasService.eliminarParaCliente(clienteId, tarifaId);
   }
 
   @Get(':id')

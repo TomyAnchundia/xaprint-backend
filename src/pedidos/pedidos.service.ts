@@ -29,6 +29,7 @@ type PedidoConsulta = {
   clienteId: number | null;
   clienteNombre: string | null;
   clienteTelefono: string | null;
+  clienteTarifaEspecial: boolean | null;
   estado: string;
   estadoPago: string;
   prioridad: number;
@@ -75,6 +76,7 @@ export class PedidosService {
         clienteId: clientes.id,
         clienteNombre: clientes.nombre,
         clienteTelefono: clientes.telefono,
+        clienteTarifaEspecial: clientes.tarifaEspecial,
         estado: pedidos.estado,
         estadoPago: pedidos.estadoPago,
         prioridad: pedidos.prioridad,
@@ -102,7 +104,8 @@ export class PedidosService {
       .leftJoin(
         ultimoCambioEstado,
         eq(pedidos.id, ultimoCambioEstado.pedidoId),
-      );
+      )
+      .orderBy(desc(pedidos.createdAt), desc(pedidos.id));
     return resultado.map((pedido) => this.formatearPedido(pedido));
   }
   async buscarPorId(id: number) {
@@ -122,6 +125,7 @@ export class PedidosService {
         clienteId: clientes.id,
         clienteNombre: clientes.nombre,
         clienteTelefono: clientes.telefono,
+        clienteTarifaEspecial: clientes.tarifaEspecial,
         estado: pedidos.estado,
         estadoPago: pedidos.estadoPago,
         prioridad: pedidos.prioridad,
@@ -160,6 +164,7 @@ export class PedidosService {
       datos.servicio,
       datos.ancho,
       datos.largo,
+      datos.clienteId,
     );
     const costoDiseno = datos.costoDiseno ?? 0;
     const valoresPrecio = this.calcularValoresPrecio(
@@ -209,7 +214,11 @@ export class PedidosService {
       datos.costoDiseno !== undefined
         ? datos.costoDiseno
         : pedidoActual.costoDiseno;
+    const cambioCliente =
+      datos.clienteId !== undefined &&
+      datos.clienteId !== pedidoActual.cliente?.id;
     const debeRecalcularPrecio =
+      cambioCliente ||
       datos.servicio !== undefined ||
       datos.ancho !== undefined ||
       datos.largo !== undefined;
@@ -224,6 +233,7 @@ export class PedidosService {
         servicioNuevo,
         anchoNuevo,
         largoNuevo,
+        datos.clienteId ?? pedidoActual.cliente?.id,
       );
       const valoresPrecio = this.calcularValoresPrecio(
         servicioNuevo,
@@ -390,7 +400,7 @@ export class PedidosService {
       .from(historialPedidos)
       .leftJoin(usuarios, eq(historialPedidos.usuarioId, usuarios.id))
       .where(eq(historialPedidos.pedidoId, id))
-      .orderBy(historialPedidos.createdAt);
+      .orderBy(desc(historialPedidos.createdAt), desc(historialPedidos.id));
   }
   async eliminar(id: number) {
     const resultado = await this.database.db.transaction(async (tx) => {
@@ -429,6 +439,7 @@ export class PedidosService {
             id: pedido.clienteId,
             nombre: pedido.clienteNombre,
             telefono: pedido.clienteTelefono,
+            tarifaEspecial: pedido.clienteTarifaEspecial ?? false,
           }
         : null,
       estado: pedido.estado,
@@ -478,6 +489,7 @@ export class PedidosService {
     servicio: string,
     ancho: number,
     largoCm: number | null | undefined,
+    clienteId?: number,
   ): Promise<number | null> {
     if (largoCm === null || largoCm === undefined) {
       return null;
@@ -486,6 +498,7 @@ export class PedidosService {
       servicio as 'TEXTIL' | 'UV',
       ancho,
       largoCm,
+      clienteId,
     );
   }
   private validarEstado(estado: string): void {
@@ -510,6 +523,7 @@ export class PedidosService {
         pedidoId: historialPedidos.pedidoId,
         estadoAnterior: historialPedidos.estadoAnterior,
         estado: historialPedidos.estadoNuevo,
+        estadoPago: pedidos.estadoPago,
         fecha: historialPedidos.createdAt,
         clienteId: clientes.id,
         clienteNombre: clientes.nombre,
@@ -533,7 +547,7 @@ export class PedidosService {
           eq(historialPedidos.estadoNuevo, 'CANCELADO'),
         ),
       )
-      .orderBy(desc(historialPedidos.createdAt));
+      .orderBy(desc(historialPedidos.createdAt), desc(historialPedidos.id));
     /* * Un pedido solo puede aparecer una vez. * * Como los registros están ordenados del * más reciente al más antiguo, conservamos * únicamente el primero. */ const pedidosProcesados =
       new Set<number>();
     return historial
@@ -549,6 +563,7 @@ export class PedidosService {
         pedidoId: item.pedidoId,
         estadoAnterior: item.estadoAnterior,
         estado: item.estado,
+        estadoPago: item.estadoPago,
         fecha: item.fecha,
         cliente: item.clienteId
           ? {

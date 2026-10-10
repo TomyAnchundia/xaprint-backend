@@ -1,4 +1,11 @@
-import { IsIn, IsNumber, IsOptional, IsPositive, Min } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  Min,
+} from 'class-validator';
 
 export class CalcularPrecioDto {
   @IsIn(['TEXTIL', 'UV'])
@@ -16,4 +23,9 @@ export class CalcularPrecioDto {
   @IsNumber()
   @Min(0)
   costoDiseno?: number;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  clienteId?: number;
 }

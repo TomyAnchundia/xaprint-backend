@@ -10,8 +10,27 @@ export class PreciosService {
     servicio: ServicioTarifa,
     ancho: number,
     largoCm: number,
+    clienteId?: number,
   ): Promise<number> {
     this.validarLargo(largoCm);
+
+    const tarifaCliente =
+      clienteId === undefined
+        ? null
+        : await this.tarifasService.obtenerTarifaClienteAplicable(
+            clienteId,
+            servicio,
+            ancho,
+            largoCm,
+          );
+    if (tarifaCliente?.esEspecial) {
+      if (!tarifaCliente.tarifa) {
+        throw new BadRequestException(
+          `Falta configurar una tarifa exclusiva para este cliente: ${servicio}, ${ancho} cm de ancho y ${largoCm} cm de largo`,
+        );
+      }
+      return this.redondear((largoCm / 100) * tarifaCliente.tarifa.precio);
+    }
 
     const tarifa = await this.tarifasService.obtenerTarifaAplicable(
       servicio,
@@ -36,8 +55,14 @@ export class PreciosService {
     ancho: number,
     largoCm: number,
     costoDiseno = 0,
+    clienteId?: number,
   ) {
-    const precioCalculado = await this.calcularPrecio(servicio, ancho, largoCm);
+    const precioCalculado = await this.calcularPrecio(
+      servicio,
+      ancho,
+      largoCm,
+      clienteId,
+    );
 
     return this.calcularCotizacionDesdePrecio(
       precioCalculado,

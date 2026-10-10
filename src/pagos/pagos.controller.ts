@@ -20,6 +20,7 @@ import { PedidosGateway } from '../pedidos/pedidos.gateway';
 
 import { CrearPagoDesarrolladorDto } from './dto/crear-pago-desarrollador.dto';
 import { CrearPagoDto } from './dto/crear-pago-dto';
+import { CrearPagoPedidoDto } from './dto/crear-pago-pedido.dto';
 import { PagosService } from './pagos.service';
 
 interface RequestConUsuario extends ExpressRequest {
@@ -42,6 +43,11 @@ export class PagosController {
   @Get('deuda/:clienteId')
   obtenerDeudaCliente(@Param('clienteId', ParseIntPipe) clienteId: number) {
     return this.pagosService.obtenerDeudaCliente(clienteId);
+  }
+
+  @Get('pedido/:pedidoId')
+  obtenerPagosPedido(@Param('pedidoId', ParseIntPipe) pedidoId: number) {
+    return this.pagosService.obtenerPagosPedido(pedidoId);
   }
 
   @Get('resumen')
@@ -96,11 +102,13 @@ export class PagosController {
   @Post('pedido/:pedidoId')
   async registrarPagoPedido(
     @Param('pedidoId', ParseIntPipe) pedidoId: number,
+    @Body() dto: CrearPagoPedidoDto | undefined,
     @Request() req: RequestConUsuario,
   ) {
     const resultado = await this.pagosService.registrarPagoPedido(
       req.user.id,
       pedidoId,
+      dto?.metodoPago,
     );
     this.pedidosGateway.emitirFinanzasActualizadas();
     return resultado;

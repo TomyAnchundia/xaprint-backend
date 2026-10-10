@@ -8,6 +8,7 @@ describe('PreciosService', () => {
   const tarifasService = {
     obtenerPorId: jest.fn(),
     obtenerTarifaAplicable: jest.fn(),
+    obtenerTarifaClienteAplicable: jest.fn(),
   };
   const service = new PreciosService(
     tarifasService as unknown as TarifasService,
@@ -16,6 +17,7 @@ describe('PreciosService', () => {
   beforeEach(() => {
     tarifasService.obtenerPorId.mockReset();
     tarifasService.obtenerTarifaAplicable.mockReset();
+    tarifasService.obtenerTarifaClienteAplicable.mockReset();
   });
 
   it('cotiza el redondeo textil para una tarifa concreta', async () => {
@@ -113,4 +115,31 @@ describe('PreciosService', () => {
       expect(cotizacion.valorCobrar).toBe(largoCm === 300 ? 60 : 9.95);
     },
   );
+
+  it('usa la tarifa exclusiva del cliente para calcular el pedido', async () => {
+    tarifasService.obtenerTarifaClienteAplicable.mockResolvedValue({
+      esEspecial: true,
+      tarifa: { precio: 5 },
+    });
+
+    await expect(
+      service.calcularCotizacion('TEXTIL', 31, 100, 0, 42),
+    ).resolves.toMatchObject({
+      precioCalculado: 5,
+      valorCobrar: 5,
+    });
+    expect(tarifasService.obtenerTarifaAplicable).not.toHaveBeenCalled();
+  });
+
+  it('bloquea el cálculo si al cliente especial le falta ese rango', async () => {
+    tarifasService.obtenerTarifaClienteAplicable.mockResolvedValue({
+      esEspecial: true,
+      tarifa: null,
+    });
+
+    await expect(
+      service.calcularCotizacion('TEXTIL', 31, 100, 0, 42),
+    ).rejects.toThrow('Falta configurar una tarifa exclusiva');
+    expect(tarifasService.obtenerTarifaAplicable).not.toHaveBeenCalled();
+  });
 });

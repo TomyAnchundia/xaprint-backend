@@ -32,6 +32,9 @@ export const clientes = sqliteTable('clientes', {
   telefono: text('telefono').notNull().unique(),
   cedula: text('cedula'),
   direccion: text('direccion'),
+  tarifaEspecial: integer('tarifa_especial', { mode: 'boolean' })
+    .notNull()
+    .default(false),
 });
 
 export const categoriasInventario = sqliteTable('categorias_inventario', {
@@ -292,6 +295,8 @@ export const pagos = sqliteTable('pagos', {
 
   monto: real('monto').notNull(),
 
+  metodoPago: text('metodo_pago').notNull().default('Efectivo'),
+
   usuarioId: integer('usuario_id')
     .notNull()
     .references(() => usuarios.id),
@@ -359,6 +364,25 @@ export const tarifas = sqliteTable('tarifas', {
   updatedAt: integer('updated_at', {
     mode: 'timestamp',
   })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const tarifasClientes = sqliteTable('tarifas_clientes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  clienteId: integer('cliente_id')
+    .notNull()
+    .references(() => clientes.id),
+  servicio: text('servicio').notNull(),
+  ancho: real('ancho').notNull(),
+  desde: real('desde').notNull(),
+  hasta: real('hasta'),
+  precio: real('precio').notNull(),
+  activo: integer('activo', { mode: 'boolean' }).notNull().default(true),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
 });

@@ -29,6 +29,7 @@ describe('PagosService', () => {
   });
 
   it('registra el pago de un pedido antes de entregarlo', async () => {
+    const valoresInsertados: unknown[] = [];
     const resultadosSelect = [
       [
         {
@@ -49,12 +50,15 @@ describe('PagosService', () => {
         all: jest.fn().mockImplementation(async () => resultadosSelect.shift()),
       })),
       insert: jest.fn(() => ({
-        values: jest.fn(() => ({
-          returning: jest.fn(() => ({
-            all: jest.fn().mockResolvedValue([{ id: 91 }]),
-          })),
-          run: jest.fn().mockResolvedValue(undefined),
-        })),
+        values: jest.fn((value: unknown) => {
+          valoresInsertados.push(value);
+          return {
+            returning: jest.fn(() => ({
+              all: jest.fn().mockResolvedValue([{ id: 91 }]),
+            })),
+            run: jest.fn().mockResolvedValue(undefined),
+          };
+        }),
       })),
       update: jest.fn(() => ({
         set: jest.fn(() => ({
@@ -75,7 +79,7 @@ describe('PagosService', () => {
     );
 
     await expect(
-      serviceConBaseDeDatos.registrarPagoPedido(7, 12),
+      serviceConBaseDeDatos.registrarPagoPedido(7, 12, 'Transferencia'),
     ).resolves.toMatchObject({
       pagoId: 91,
       pedidoId: 12,
@@ -83,5 +87,11 @@ describe('PagosService', () => {
       estadoPago: 'PAGADO',
     });
     expect(tx.insert).toHaveBeenCalledTimes(3);
+    expect(valoresInsertados[0]).toMatchObject({
+      clienteId: 3,
+      monto: 25,
+      metodoPago: 'Transferencia',
+      usuarioId: 7,
+    });
   });
 });

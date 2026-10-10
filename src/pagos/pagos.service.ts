@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { and, asc, desc, eq, gte, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
 
 import { DatabaseService } from '../database/database.service';
 
@@ -18,7 +18,7 @@ import {
   usuarios,
 } from '../database/schema';
 
-import { CrearPagoDto } from './dto/crear-pago-dto';
+import { CrearPagoDto, type MetodoPago } from './dto/crear-pago-dto';
 
 @Injectable()
 export class PagosService {
@@ -140,7 +140,11 @@ export class PagosService {
     }
   }
 
-  registrarPagoPedido(usuarioId: number, pedidoId: number) {
+  registrarPagoPedido(
+    usuarioId: number,
+    pedidoId: number,
+    metodoPago: MetodoPago = 'Efectivo',
+  ) {
     return this.database.db.transaction(async (tx) => {
       const pedido = (
         await tx
@@ -188,6 +192,7 @@ export class PagosService {
           .values({
             clienteId: pedido.clienteId,
             monto: pendiente,
+            metodoPago,
             usuarioId,
           })
           .returning({ id: pagos.id })
@@ -486,6 +491,8 @@ export class PagosService {
     const [cobros] = await this.database.db
       .select({
         total: sql<number>`COALESCE(SUM(${pagos.monto}), 0)`,
+        efectivo: sql<number>`COALESCE(SUM(CASE WHEN ${pagos.metodoPago} = 'Efectivo' THEN ${pagos.monto} ELSE 0 END), 0)`,
+        transferencia: sql<number>`COALESCE(SUM(CASE WHEN ${pagos.metodoPago} = 'Transferencia' THEN ${pagos.monto} ELSE 0 END), 0)`,
       })
       .from(pagos)
       .where(and(gte(pagos.createdAt, inicio), lt(pagos.createdAt, fin)));
@@ -534,11 +541,36 @@ export class PagosService {
       desde,
       hasta,
       cobrado: Number(Number(cobros?.total ?? 0).toFixed(2)),
+      efectivo: Number(Number(cobros?.efectivo ?? 0).toFixed(2)),
+      transferencia: Number(Number(cobros?.transferencia ?? 0).toFixed(2)),
       porCobrar: Number(
         saldos.reduce((total, saldo) => total + saldo, 0).toFixed(2),
       ),
       pedidosPorCobrar: saldos.filter((saldo) => saldo > 0).length,
     };
+  }
+
+  async obtenerPagosPedido(pedidoId: number) {
+    const [pedido] = await this.database.db
+      .select({ id: pedidos.id })
+      .from(pedidos)
+      .where(eq(pedidos.id, pedidoId))
+      .limit(1);
+    if (!pedido) {
+      throw new NotFoundException('Pedido no encontrado');
+    }
+
+    return this.database.db
+      .select({
+        id: pagos.id,
+        metodoPago: pagos.metodoPago,
+        monto: pagosPedidos.monto,
+        fecha: pagos.createdAt,
+      })
+      .from(pagosPedidos)
+      .innerJoin(pagos, eq(pagosPedidos.pagoId, pagos.id))
+      .where(eq(pagosPedidos.pedidoId, pedidoId))
+      .orderBy(desc(pagos.createdAt), desc(pagos.id));
   }
 
   private obtenerRangoDia(fecha: string): { inicio: Date; fin: Date } {
@@ -581,6 +613,7 @@ export class PagosService {
     const pedidosCliente = await this.database.db
       .select({
         id: pedidos.id,
+        fecha: pedidos.createdAt,
         estado: pedidos.estado,
         valorCobrar: pedidos.valorCobrar,
         pagado: sql<number>`
@@ -604,6 +637,7 @@ export class PagosService {
 
         return {
           id: pedido.id,
+          fecha: pedido.fecha,
           total,
           pagado,
           porCobrar,
@@ -773,6 +807,7 @@ export class PagosService {
         .values({
           clienteId: dto.clienteId,
           monto,
+          metodoPago: dto.metodoPago ?? 'Efectivo',
           usuarioId,
         })
         .returning({
@@ -882,6 +917,7 @@ export class PagosService {
       .select({
         pagoId: pagos.id,
         montoPago: pagos.monto,
+        metodoPago: pagos.metodoPago,
         fechaPago: pagos.createdAt,
 
         usuarioId: pagos.usuarioId,
@@ -894,13 +930,14 @@ export class PagosService {
       .innerJoin(pagosPedidos, eq(pagos.id, pagosPedidos.pagoId))
       .innerJoin(usuarios, eq(pagos.usuarioId, usuarios.id))
       .where(eq(pagos.clienteId, clienteId))
-      .orderBy(asc(pagos.createdAt));
+      .orderBy(desc(pagos.createdAt), desc(pagos.id));
 
     const pagosMap = new Map<
       number,
       {
         id: number;
         monto: number;
+        metodoPago: string;
         fecha: Date;
         usuario: {
           id: number;
@@ -919,6 +956,7 @@ export class PagosService {
           id: resultado.pagoId,
 
           monto: Number(resultado.montoPago.toFixed(2)),
+          metodoPago: resultado.metodoPago,
 
           fecha: resultado.fechaPago,
 

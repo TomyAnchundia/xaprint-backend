@@ -6,7 +6,7 @@ import {
 import { and, eq, ne } from 'drizzle-orm';
 
 import { DatabaseService } from '../database/database.service';
-import { tarifas } from '../database/schema';
+import { clientes, tarifas, tarifasClientes } from '../database/schema';
 
 export type ServicioTarifa = 'TEXTIL' | 'UV';
 
@@ -222,5 +222,212 @@ export class TarifasService {
     });
 
     return tarifa ?? null;
+  }
+
+  async listarDeCliente(clienteId: number) {
+    await this.obtenerCliente(clienteId);
+    return this.database.db
+      .select()
+      .from(tarifasClientes)
+      .where(eq(tarifasClientes.clienteId, clienteId));
+  }
+
+  async establecerClienteEspecial(clienteId: number, activo: boolean) {
+    await this.obtenerCliente(clienteId);
+    const [cliente] = await this.database.db
+      .update(clientes)
+      .set({ tarifaEspecial: activo })
+      .where(eq(clientes.id, clienteId))
+      .returning();
+    return cliente;
+  }
+
+  async crearParaCliente(
+    clienteId: number,
+    data: {
+      servicio: ServicioTarifa;
+      ancho: number;
+      desde: number;
+      hasta?: number | null;
+      precio: number;
+    },
+  ) {
+    await this.obtenerCliente(clienteId);
+    this.validarDatos(data);
+    await this.validarSolapamientoCliente(
+      clienteId,
+      data.servicio,
+      data.ancho,
+      data.desde,
+      data.hasta ?? null,
+    );
+
+    const tarifa = await this.database.db.transaction(async (tx) => {
+      const [creada] = await tx
+        .insert(tarifasClientes)
+        .values({
+          clienteId,
+          servicio: data.servicio,
+          ancho: data.ancho,
+          desde: data.desde,
+          hasta: data.hasta ?? null,
+          precio: data.precio,
+        })
+        .returning();
+      await tx
+        .update(clientes)
+        .set({ tarifaEspecial: true })
+        .where(eq(clientes.id, clienteId));
+      return creada;
+    });
+    return tarifa;
+  }
+
+  async actualizarParaCliente(
+    clienteId: number,
+    tarifaId: number,
+    data: {
+      servicio: ServicioTarifa;
+      ancho: number;
+      desde: number;
+      hasta?: number | null;
+      precio: number;
+    },
+  ) {
+    await this.obtenerTarifaCliente(clienteId, tarifaId);
+    this.validarDatos(data);
+    await this.validarSolapamientoCliente(
+      clienteId,
+      data.servicio,
+      data.ancho,
+      data.desde,
+      data.hasta ?? null,
+      tarifaId,
+    );
+
+    const [tarifa] = await this.database.db
+      .update(tarifasClientes)
+      .set({
+        servicio: data.servicio,
+        ancho: data.ancho,
+        desde: data.desde,
+        hasta: data.hasta ?? null,
+        precio: data.precio,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(tarifasClientes.id, tarifaId),
+          eq(tarifasClientes.clienteId, clienteId),
+        ),
+      )
+      .returning();
+    return tarifa;
+  }
+
+  async eliminarParaCliente(clienteId: number, tarifaId: number) {
+    await this.obtenerTarifaCliente(clienteId, tarifaId);
+    const [tarifa] = await this.database.db
+      .delete(tarifasClientes)
+      .where(
+        and(
+          eq(tarifasClientes.id, tarifaId),
+          eq(tarifasClientes.clienteId, clienteId),
+        ),
+      )
+      .returning();
+    return tarifa;
+  }
+
+  async obtenerTarifaClienteAplicable(
+    clienteId: number,
+    servicio: ServicioTarifa,
+    ancho: number,
+    largoCm: number,
+  ) {
+    const cliente = await this.obtenerCliente(clienteId);
+    if (!cliente.tarifaEspecial) {
+      return { esEspecial: false, tarifa: null };
+    }
+
+    const tarifasActivas = await this.database.db
+      .select()
+      .from(tarifasClientes)
+      .where(
+        and(
+          eq(tarifasClientes.clienteId, clienteId),
+          eq(tarifasClientes.servicio, servicio),
+          eq(tarifasClientes.ancho, ancho),
+          eq(tarifasClientes.activo, true),
+        ),
+      );
+    const tarifa =
+      tarifasActivas.find(
+        (item) =>
+          largoCm >= item.desde && (item.hasta === null || largoCm < item.hasta),
+      ) ?? null;
+    return { esEspecial: true, tarifa };
+  }
+
+  private async obtenerCliente(clienteId: number) {
+    const [cliente] = await this.database.db
+      .select()
+      .from(clientes)
+      .where(eq(clientes.id, clienteId))
+      .limit(1);
+    if (!cliente) {
+      throw new NotFoundException('Cliente no encontrado');
+    }
+    return cliente;
+  }
+
+  private async obtenerTarifaCliente(clienteId: number, tarifaId: number) {
+    const [tarifa] = await this.database.db
+      .select()
+      .from(tarifasClientes)
+      .where(
+        and(
+          eq(tarifasClientes.id, tarifaId),
+          eq(tarifasClientes.clienteId, clienteId),
+        ),
+      )
+      .limit(1);
+    if (!tarifa) {
+      throw new NotFoundException('Tarifa exclusiva no encontrada');
+    }
+    return tarifa;
+  }
+
+  private async validarSolapamientoCliente(
+    clienteId: number,
+    servicio: ServicioTarifa,
+    ancho: number,
+    desde: number,
+    hasta: number | null,
+    excluirId?: number,
+  ) {
+    const condiciones = [
+      eq(tarifasClientes.clienteId, clienteId),
+      eq(tarifasClientes.servicio, servicio),
+      eq(tarifasClientes.ancho, ancho),
+      eq(tarifasClientes.activo, true),
+    ];
+    if (excluirId !== undefined) {
+      condiciones.push(ne(tarifasClientes.id, excluirId));
+    }
+    const existentes = await this.database.db
+      .select()
+      .from(tarifasClientes)
+      .where(and(...condiciones));
+    const nuevoHasta = hasta ?? Infinity;
+    const solapa = existentes.some((tarifa) => {
+      const existenteHasta = tarifa.hasta ?? Infinity;
+      return desde < existenteHasta && tarifa.desde < nuevoHasta;
+    });
+    if (solapa) {
+      throw new BadRequestException(
+        'El rango de la tarifa exclusiva se solapa con otra tarifa activa del cliente',
+      );
+    }
   }
 }
