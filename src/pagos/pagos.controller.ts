@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { PedidosGateway } from '../pedidos/pedidos.gateway';
+import { PedidosService } from '../pedidos/pedidos.service';
 
 import { CrearPagoDesarrolladorDto } from './dto/crear-pago-desarrollador.dto';
 import { CrearPagoDto } from './dto/crear-pago-dto';
@@ -38,6 +39,7 @@ export class PagosController {
   constructor(
     private readonly pagosService: PagosService,
     private readonly pedidosGateway: PedidosGateway,
+    private readonly pedidosService: PedidosService,
   ) {}
 
   @Get('deuda/:clienteId')
@@ -110,6 +112,7 @@ export class PagosController {
       pedidoId,
       dto?.metodoPago,
     );
+    await this.emitirPedidosActualizados([pedidoId]);
     this.pedidosGateway.emitirFinanzasActualizadas();
     return resultado;
   }
@@ -123,6 +126,7 @@ export class PagosController {
       req.user.id,
       pedidoId,
     );
+    await this.emitirPedidosActualizados([pedidoId]);
     this.pedidosGateway.emitirFinanzasActualizadas();
     return resultado;
   }
@@ -133,7 +137,18 @@ export class PagosController {
     @Request() req: RequestConUsuario,
   ) {
     const resultado = await this.pagosService.registrarPago(req.user.id, dto);
+    await this.emitirPedidosActualizados(resultado.pedidoIds);
     this.pedidosGateway.emitirFinanzasActualizadas();
     return resultado;
+  }
+
+  private async emitirPedidosActualizados(pedidoIds: number[]) {
+    const pedidosActualizados = await Promise.all(
+      pedidoIds.map((pedidoId) => this.pedidosService.buscarPorId(pedidoId)),
+    );
+
+    pedidosActualizados.forEach((pedido) => {
+      if (pedido) this.pedidosGateway.emitirPedidoActualizado(pedido);
+    });
   }
 }

@@ -12,6 +12,6 @@ import { PreciosModule } from '../precios/precios.module';
   controllers: [PedidosController],
 
   providers: [PedidosService, PedidosGateway],
-  exports: [PedidosGateway],
+  exports: [PedidosGateway, PedidosService],
 })
 export class PedidosModule {}

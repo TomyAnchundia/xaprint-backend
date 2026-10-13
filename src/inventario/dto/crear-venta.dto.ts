@@ -31,6 +31,12 @@ class ItemVentaDto {
   @IsOptional()
   @IsIn(['UNIDAD', 'CAJA'])
   presentacion?: 'UNIDAD' | 'CAJA';
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 6 })
+  @Min(0)
+  @Max(100)
+  descuentoPorcentaje?: number;
 }
 
 export class CrearVentaDto {
@@ -48,7 +54,7 @@ export class CrearVentaDto {
   abonoInicial?: number;
 
   @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 })
+  @IsNumber({ maxDecimalPlaces: 6 })
   @Min(0)
   @Max(100)
   descuentoPorcentaje?: number;

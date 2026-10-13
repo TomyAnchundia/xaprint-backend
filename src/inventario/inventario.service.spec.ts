@@ -119,6 +119,30 @@ describe('InventarioService', () => {
       'utf8',
     );
     await client.executeMultiple(duplicateSizePricingMigration);
+    const customerTariffsMigration = await readFile(
+      resolve(
+        __dirname,
+        '../../migrations/20261010042848_tarifas_especiales_clientes/migration.sql',
+      ),
+      'utf8',
+    );
+    await client.executeMultiple(customerTariffsMigration);
+    const productDiscountMigration = await readFile(
+      resolve(
+        __dirname,
+        '../../migrations/20261012000000_descuentos_por_producto/migration.sql',
+      ),
+      'utf8',
+    );
+    await client.executeMultiple(productDiscountMigration);
+    const duplicateProductDiscountMigration = await readFile(
+      resolve(
+        __dirname,
+        '../../migrations/20261013025806_chemical_rhodey/migration.sql',
+      ),
+      'utf8',
+    );
+    await client.executeMultiple(duplicateProductDiscountMigration);
     const migratedProduct = await client.execute(
       `SELECT p.categoria_id, c.nombre AS categoria
        FROM productos_inventario p
@@ -294,7 +318,13 @@ describe('InventarioService', () => {
         clienteId: cliente.id,
         metodoPago: 'Transferencia',
         descuentoPorcentaje: 5,
-        items: [{ productoId: producto.id, cantidad: 4 }],
+        items: [
+          {
+            productoId: producto.id,
+            cantidad: 4,
+            descuentoPorcentaje: 10,
+          },
+        ],
       },
       admin,
     );
@@ -302,8 +332,9 @@ describe('InventarioService', () => {
       id: 'V-1',
       subtotal: 10,
       discountPercentage: 5,
-      discountAmount: 0.5,
-      total: 9.5,
+      discountAmount: 0.45,
+      total: 8.55,
+      items: [{ discountPercentage: 10, discountAmount: 1 }],
       payment: 'Transferencia',
     });
     expect(
@@ -314,8 +345,9 @@ describe('InventarioService', () => {
     expect((await service.obtenerVentas())[0]).toMatchObject({
       subtotal: 10,
       discountPercentage: 5,
-      discountAmount: 0.5,
-      total: 9.5,
+      discountAmount: 0.45,
+      total: 8.55,
+      items: [{ discountPercentage: 10, discountAmount: 1 }],
     });
 
     const tallaM = await service.crearTalla({ nombre: 'M' });
@@ -410,7 +442,7 @@ describe('InventarioService', () => {
       (await service.obtenerVentas()).find((sale) => sale.id === 'V-1'),
     ).toMatchObject({
       payment: 'Transferencia',
-      total: 9.5,
+      total: 8.55,
     });
 
     const colorRojo = await service.crearColor({ nombre: 'Rojo' });

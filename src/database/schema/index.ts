@@ -169,6 +169,8 @@ export const itemsVentaInventario = sqliteTable('items_venta_inventario', {
   productoNombre: text('producto_nombre').notNull(),
   cantidad: integer('cantidad').notNull(),
   precio: real('precio').notNull(),
+  descuentoPorcentaje: real('descuento_porcentaje').notNull().default(0),
+  descuentoMonto: real('descuento_monto').notNull().default(0),
   total: real('total').notNull(),
 });
 

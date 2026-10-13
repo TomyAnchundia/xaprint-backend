@@ -816,6 +816,7 @@ export class PagosService {
         .all();
 
       let restante = monto;
+      const pedidoIds: number[] = [];
 
       /*
        * Aplicamos FIFO.
@@ -841,6 +842,7 @@ export class PagosService {
             monto: montoAplicar,
           })
           .run();
+        pedidoIds.push(pedido.id);
 
         /*
          * Calculamos cuánto lleva pagado
@@ -892,6 +894,7 @@ export class PagosService {
         cliente: cliente[0],
         monto,
         aplicado: Number((monto - restante).toFixed(2)),
+        pedidoIds,
       };
     });
 

@@ -641,6 +641,8 @@ export class InventarioService {
             presentacion: linea.presentacion,
             cantidad: linea.cantidad,
             precio: linea.precio,
+            descuentoPorcentaje: linea.descuentoPorcentaje,
+            descuentoMonto: linea.descuentoMonto,
             total: linea.total,
           })),
       };
@@ -1539,6 +1541,7 @@ export class InventarioService {
           unidadesPorPresentacion: number;
           cantidad: number;
           precio: number;
+          descuentoPorcentaje: number;
         }
       >();
       for (const item of datos.items) {
@@ -1588,7 +1591,8 @@ export class InventarioService {
             `${detalle.producto.nombre} no tiene una caja configurada`,
           );
         }
-        const clave = `${varianteId}:${presentacion}`;
+        const descuentoPorcentaje = item.descuentoPorcentaje ?? 0;
+        const clave = `${varianteId}:${presentacion}:${descuentoPorcentaje}`;
         const anterior = lineasPorClave.get(clave);
         lineasPorClave.set(clave, {
           ...detalle,
@@ -1600,6 +1604,7 @@ export class InventarioService {
           unidadesPorPresentacion: unidadesPorPresentacion ?? 1,
           cantidad: (anterior?.cantidad ?? 0) + item.cantidad,
           precio: precio ?? detalle.producto.precio,
+          descuentoPorcentaje,
         });
       }
 
@@ -1613,7 +1618,17 @@ export class InventarioService {
         return {
           ...item,
           consumo,
-          total: Math.round(item.precio * item.cantidad * 100) / 100,
+          subtotal: Math.round(item.precio * item.cantidad * 100) / 100,
+          descuentoMonto:
+            Math.round(
+              item.precio * item.cantidad * item.descuentoPorcentaje,
+            ) / 100,
+          total:
+            Math.round(
+              item.precio *
+                item.cantidad *
+                (100 - item.descuentoPorcentaje),
+            ) / 100,
         };
       });
       for (const item of items) {
@@ -1627,12 +1642,17 @@ export class InventarioService {
         }
       }
       const subtotal =
+        Math.round(items.reduce((sum, item) => sum + item.subtotal, 0) * 100) /
+        100;
+      const subtotalConDescuentosProducto =
         Math.round(items.reduce((sum, item) => sum + item.total, 0) * 100) /
         100;
       const descuentoPorcentaje = datos.descuentoPorcentaje ?? 0;
       const descuentoMonto =
-        Math.round(subtotal * descuentoPorcentaje) / 100;
-      const total = Math.round((subtotal - descuentoMonto) * 100) / 100;
+        Math.round(subtotalConDescuentosProducto * descuentoPorcentaje) / 100;
+      const total =
+        Math.round((subtotalConDescuentosProducto - descuentoMonto) * 100) /
+        100;
       const abonoInicial = Math.round((datos.abonoInicial ?? 0) * 100) / 100;
       if (datos.metodoPago === 'Crédito') {
         if (abonoInicial > total) {
@@ -1673,6 +1693,8 @@ export class InventarioService {
             unidadesPorPresentacion,
             cantidad,
             precio,
+            descuentoPorcentaje,
+            descuentoMonto,
             total: itemTotal,
           }) => ({
             ventaId: venta.id,
@@ -1684,6 +1706,8 @@ export class InventarioService {
             productoNombre: producto.nombre,
             cantidad,
             precio,
+            descuentoPorcentaje,
+            descuentoMonto,
             total: itemTotal,
           }),
         ),
@@ -1736,6 +1760,8 @@ export class InventarioService {
             unidadesPorPresentacion,
             cantidad,
             precio,
+            descuentoPorcentaje,
+            descuentoMonto,
           }) => ({
           productId: producto.id,
           variantId: variante.id,
@@ -1745,6 +1771,8 @@ export class InventarioService {
           unitsPerPresentation: unidadesPorPresentacion,
           quantity: cantidad,
           price: precio,
+          discountPercentage: descuentoPorcentaje,
+          discountAmount: descuentoMonto,
           }),
         ),
         payment: venta.metodoPago,
@@ -1816,6 +1844,7 @@ export class InventarioService {
           unidadesPorPresentacion: number;
           cantidad: number;
           precio: number;
+          descuentoPorcentaje: number;
         }
       >();
       for (const item of datos.items) {
@@ -1865,7 +1894,8 @@ export class InventarioService {
             `${detalle.producto.nombre} no tiene una caja configurada`,
           );
         }
-        const clave = `${varianteId}:${presentacion}`;
+        const descuentoPorcentaje = item.descuentoPorcentaje ?? 0;
+        const clave = `${varianteId}:${presentacion}:${descuentoPorcentaje}`;
         const anterior = lineasPorClave.get(clave);
         lineasPorClave.set(clave, {
           ...detalle,
@@ -1877,6 +1907,7 @@ export class InventarioService {
           unidadesPorPresentacion: unidadesPorPresentacion ?? 1,
           cantidad: (anterior?.cantidad ?? 0) + item.cantidad,
           precio: precio ?? detalle.producto.precio,
+          descuentoPorcentaje,
         });
         cantidades.set(
           varianteId,
@@ -1887,7 +1918,17 @@ export class InventarioService {
 
       const items = [...lineasPorClave.values()].map((item) => ({
         ...item,
-        total: Math.round(item.precio * item.cantidad * 100) / 100,
+        subtotal: Math.round(item.precio * item.cantidad * 100) / 100,
+        descuentoMonto:
+          Math.round(
+            item.precio * item.cantidad * item.descuentoPorcentaje,
+          ) / 100,
+        total:
+          Math.round(
+            item.precio *
+              item.cantidad *
+              (100 - item.descuentoPorcentaje),
+          ) / 100,
       }));
       const idsVariantes = new Set([
         ...cantidadesAnteriores.keys(),
@@ -1953,12 +1994,17 @@ export class InventarioService {
       }
 
       const subtotal =
+        Math.round(items.reduce((sum, item) => sum + item.subtotal, 0) * 100) /
+        100;
+      const subtotalConDescuentosProducto =
         Math.round(items.reduce((sum, item) => sum + item.total, 0) * 100) /
         100;
       const descuentoPorcentaje = datos.descuentoPorcentaje ?? 0;
       const descuentoMonto =
-        Math.round(subtotal * descuentoPorcentaje) / 100;
-      const total = Math.round((subtotal - descuentoMonto) * 100) / 100;
+        Math.round(subtotalConDescuentosProducto * descuentoPorcentaje) / 100;
+      const total =
+        Math.round((subtotalConDescuentosProducto - descuentoMonto) * 100) /
+        100;
       await tx
         .update(ventasInventario)
         .set({
@@ -1983,6 +2029,8 @@ export class InventarioService {
             unidadesPorPresentacion,
             cantidad,
             precio,
+            descuentoPorcentaje,
+            descuentoMonto,
             total: itemTotal,
           }) => ({
             ventaId: id,
@@ -1994,6 +2042,8 @@ export class InventarioService {
             productoNombre: producto.nombre,
             cantidad,
             precio,
+            descuentoPorcentaje,
+            descuentoMonto,
             total: itemTotal,
           }),
         ),
@@ -2037,6 +2087,8 @@ export class InventarioService {
             unidadesPorPresentacion,
             cantidad,
             precio,
+            descuentoPorcentaje,
+            descuentoMonto,
           }) => ({
           productId: producto.id,
           variantId: variante.id,
@@ -2046,6 +2098,8 @@ export class InventarioService {
           unitsPerPresentation: unidadesPorPresentacion,
           quantity: cantidad,
           price: precio,
+          discountPercentage: descuentoPorcentaje,
+          discountAmount: descuentoMonto,
           }),
         ),
         payment: datos.metodoPago,
@@ -2137,6 +2191,8 @@ export class InventarioService {
           unitsPerPresentation: item.unidadesPorPresentacion,
           quantity: item.cantidad,
           price: item.precio,
+          discountPercentage: item.descuentoPorcentaje,
+          discountAmount: item.descuentoMonto,
         })),
     }));
   }
