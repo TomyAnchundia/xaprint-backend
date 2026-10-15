@@ -5,9 +5,10 @@ import { PedidosGateway } from './pedidos.gateway';
 import { PedidosService } from './pedidos.service';
 
 import { PreciosModule } from '../precios/precios.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [PreciosModule],
+  imports: [AuthModule, PreciosModule],
 
   controllers: [PedidosController],
 

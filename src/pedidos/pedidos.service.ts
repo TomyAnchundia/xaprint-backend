@@ -3,11 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { desc, eq, max, or } from 'drizzle-orm';
+import { desc, eq, inArray, max, or, sql } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import {
   clientes,
   historialPedidos,
+  pagos,
   pagosPedidos,
   pedidos,
   usuarios,
@@ -101,12 +102,14 @@ export class PedidosService {
       })
       .from(pedidos)
       .leftJoin(clientes, eq(pedidos.clienteId, clientes.id))
-      .leftJoin(
-        ultimoCambioEstado,
-        eq(pedidos.id, ultimoCambioEstado.pedidoId),
-      )
+      .leftJoin(ultimoCambioEstado, eq(pedidos.id, ultimoCambioEstado.pedidoId))
       .orderBy(desc(pedidos.createdAt), desc(pedidos.id));
-    return resultado.map((pedido) => this.formatearPedido(pedido));
+    const metodosPago = await this.obtenerMetodosPagoPorPedido(
+      resultado.map((pedido) => pedido.id),
+    );
+    return resultado.map((pedido) =>
+      this.formatearPedido(pedido, metodosPago.get(pedido.id) ?? []),
+    );
   }
   async buscarPorId(id: number) {
     const ultimoCambioEstado = this.database.db
@@ -157,7 +160,8 @@ export class PedidosService {
     if (!pedido) {
       return null;
     }
-    return this.formatearPedido(pedido);
+    const metodosPago = await this.obtenerMetodosPagoPorPedido([pedido.id]);
+    return this.formatearPedido(pedido, metodosPago.get(pedido.id) ?? []);
   }
   async crear(datos: CrearPedidoDto) {
     const precioCalculado = await this.calcularPrecioSiCorresponde(
@@ -431,7 +435,35 @@ export class PedidosService {
     this.pedidosGateway.emitirPedidoActualizado({ id, eliminado: true });
     return resultado[0];
   }
-  private formatearPedido(pedido: PedidoConsulta) {
+  private async obtenerMetodosPagoPorPedido(pedidoIds: number[]) {
+    if (pedidoIds.length === 0) return new Map<number, string[]>();
+
+    const resultados = await this.database.db
+      .select({
+        pedidoId: pagosPedidos.pedidoId,
+        metodosPago: sql<string>`group_concat(DISTINCT ${pagos.metodoPago})`,
+      })
+      .from(pagosPedidos)
+      .innerJoin(pagos, eq(pagosPedidos.pagoId, pagos.id))
+      .where(inArray(pagosPedidos.pedidoId, pedidoIds))
+      .groupBy(pagosPedidos.pedidoId);
+
+    return new Map(
+      resultados.map(({ pedidoId, metodosPago }) => [
+        pedidoId,
+        metodosPago
+          ? metodosPago
+              .split(',')
+              .filter(
+                (metodo): metodo is 'Efectivo' | 'Transferencia' =>
+                  metodo === 'Efectivo' || metodo === 'Transferencia',
+              )
+          : [],
+      ]),
+    );
+  }
+
+  private formatearPedido(pedido: PedidoConsulta, metodosPago: string[] = []) {
     return {
       id: pedido.id,
       cliente: pedido.clienteId
@@ -444,6 +476,7 @@ export class PedidosService {
         : null,
       estado: pedido.estado,
       estadoPago: pedido.estadoPago,
+      metodosPago,
       prioridad: pedido.prioridad,
       servicio: pedido.servicio,
       ancho: pedido.ancho,
@@ -548,6 +581,9 @@ export class PedidosService {
         ),
       )
       .orderBy(desc(historialPedidos.createdAt), desc(historialPedidos.id));
+    const metodosPagoPorPedido = await this.obtenerMetodosPagoPorPedido(
+      historial.map((item) => item.pedidoId),
+    );
     /* * Un pedido solo puede aparecer una vez. * * Como los registros están ordenados del * más reciente al más antiguo, conservamos * únicamente el primero. */ const pedidosProcesados =
       new Set<number>();
     return historial
@@ -564,6 +600,7 @@ export class PedidosService {
         estadoAnterior: item.estadoAnterior,
         estado: item.estado,
         estadoPago: item.estadoPago,
+        metodosPago: metodosPagoPorPedido.get(item.pedidoId) ?? [],
         fecha: item.fecha,
         cliente: item.clienteId
           ? {
