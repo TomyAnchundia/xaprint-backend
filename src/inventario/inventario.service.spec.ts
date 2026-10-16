@@ -143,6 +143,14 @@ describe('InventarioService', () => {
       'utf8',
     );
     await client.executeMultiple(duplicateProductDiscountMigration);
+    const movementDescriptionMigration = await readFile(
+      resolve(
+        __dirname,
+        '../../migrations/20261015000000_descripcion_movimiento/migration.sql',
+      ),
+      'utf8',
+    );
+    await client.executeMultiple(movementDescriptionMigration);
     const migratedProduct = await client.execute(
       `SELECT p.categoria_id, c.nombre AS categoria
        FROM productos_inventario p
@@ -417,11 +425,26 @@ describe('InventarioService', () => {
       },
       admin,
     );
+    const salida = await service.registrarMovimiento(
+      {
+        varianteId: productoConTallas.variants[1].id,
+        tipo: 'Salida',
+        cantidad: 1,
+        descripcion: 'Uso para muestra de exhibición',
+      },
+      admin,
+    );
+    expect(salida.description).toBe('Uso para muestra de exhibición');
+    expect(
+      (await service.obtenerMovimientos()).find(
+        (movimiento) => movimiento.id === salida.id,
+      )?.description,
+    ).toBe('Uso para muestra de exhibición');
     expect(
       (await service.obtenerProductos()).find(
         (item) => item.id === productoConTallas.id,
       )?.stock,
-    ).toBe(8);
+    ).toBe(7);
 
     await expect(
       service.actualizarVenta(
@@ -752,9 +775,8 @@ describe('InventarioService', () => {
       ],
     });
     expect(
-      (await service.obtenerProductos()).find(
-        (item) => item.id === tazas.id,
-      )?.stock,
+      (await service.obtenerProductos()).find((item) => item.id === tazas.id)
+        ?.stock,
     ).toBe(127);
     await expect(
       service.crearVenta(
@@ -802,8 +824,9 @@ describe('InventarioService', () => {
       saldoDeuda: 3,
       abonos: [{ ventaId: Number(primeraVentaCredito.id.slice(2)), monto: 60 }],
     });
-    expect((await service.obtenerClientes()).find((item) => item.id === cliente.id))
-      .toMatchObject({ saldoDeuda: 3 });
+    expect(
+      (await service.obtenerClientes()).find((item) => item.id === cliente.id),
+    ).toMatchObject({ saldoDeuda: 3 });
     const cuenta = await service.obtenerCuentaCliente(cliente.id);
     expect(cuenta).toMatchObject({
       saldoDeuda: 3,

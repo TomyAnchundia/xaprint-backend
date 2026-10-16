@@ -129,26 +129,23 @@ export const ventasInventario = sqliteTable('ventas_inventario', {
     .$defaultFn(() => new Date()),
 });
 
-export const abonosVentasInventario = sqliteTable(
-  'abonos_ventas_inventario',
-  {
-    id: integer('id').primaryKey({ autoIncrement: true }),
-    ventaId: integer('venta_id')
-      .notNull()
-      .references(() => ventasInventario.id),
-    clienteId: integer('cliente_id')
-      .notNull()
-      .references(() => clientes.id),
-    usuarioId: integer('usuario_id')
-      .notNull()
-      .references(() => usuariosInventario.id),
-    monto: real('monto').notNull(),
-    metodoPago: text('metodo_pago').notNull(),
-    createdAt: integer('created_at', { mode: 'timestamp' })
-      .notNull()
-      .$defaultFn(() => new Date()),
-  },
-);
+export const abonosVentasInventario = sqliteTable('abonos_ventas_inventario', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  ventaId: integer('venta_id')
+    .notNull()
+    .references(() => ventasInventario.id),
+  clienteId: integer('cliente_id')
+    .notNull()
+    .references(() => clientes.id),
+  usuarioId: integer('usuario_id')
+    .notNull()
+    .references(() => usuariosInventario.id),
+  monto: real('monto').notNull(),
+  metodoPago: text('metodo_pago').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
 
 export const itemsVentaInventario = sqliteTable('items_venta_inventario', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -189,6 +186,7 @@ export const movimientosInventario = sqliteTable('movimientos_inventario', {
     .references(() => usuariosInventario.id),
   tipo: text('tipo').notNull(),
   cantidad: integer('cantidad').notNull(),
+  descripcion: text('descripcion'),
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),

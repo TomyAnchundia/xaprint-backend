@@ -203,7 +203,7 @@ describe('PedidosGateway transferencias', () => {
     }
   });
 
-  it('retransmite bloques aceptados y completa sin persistirlos', async () => {
+  it('retransmite señalización P2P y confirma archivos sin almacenarlos', async () => {
     const remitente = crearSocket('diseno', {
       id: 1,
       username: 'diseno',
@@ -242,17 +242,35 @@ describe('PedidosGateway transferencias', () => {
     ).toEqual({ ok: true });
 
     expect(
-      gateway.enviarBloque(
+      gateway.retransmitirSenal(
         {
           transferenciaId: invitacion.transferenciaId,
-          archivoId: 'archivo-1',
-          secuencia: 0,
-          contenido: new Uint8Array([1, 2, 3]),
+          destinatarioSocketId: 'empleado-31',
+          tipo: 'oferta',
+          valor: { type: 'offer', sdp: 'oferta-prueba' },
         },
         remitente.socket,
       ),
     ).toEqual({ ok: true });
-    expect(emitirA).toHaveBeenCalledWith('empleado-31');
+    expect(emitirA).toHaveBeenLastCalledWith('empleado-31');
+    expect(emitirEventoSala).toHaveBeenLastCalledWith(
+      'transferencia:senal',
+      expect.objectContaining({
+        tipo: 'oferta',
+        remitenteSocketId: 'diseno',
+      }),
+    );
+    expect(
+      gateway.retransmitirSenal(
+        {
+          transferenciaId: invitacion.transferenciaId,
+          destinatarioSocketId: 'empleado-31',
+          tipo: 'respuesta',
+          valor: { type: 'answer', sdp: 'respuesta-prueba' },
+        },
+        empleado.socket,
+      ),
+    ).toEqual({ ok: true });
 
     expect(
       gateway.completarTransferencia(
@@ -281,5 +299,62 @@ describe('PedidosGateway transferencias', () => {
         estado: 'recibido',
       }),
     );
+  });
+
+  it('rechaza señalización P2P desde sockets ajenos a la transferencia', async () => {
+    const remitente = crearSocket('diseno', {
+      id: 1,
+      username: 'diseno',
+      rol: 'ADMIN',
+      area: null,
+    });
+    const empleado = crearSocket('empleado-31', {
+      id: 2,
+      username: 'impresor31',
+      rol: 'EMPLEADO',
+      area: 'TEXTIL31',
+    });
+    const intruso = crearSocket('intruso', {
+      id: 3,
+      username: 'intruso',
+      rol: 'EMPLEADO',
+      area: 'TEXTIL31',
+    });
+    obtenerSockets.mockResolvedValue([empleado.socket]);
+
+    const invitacion = await gateway.invitarTransferencia(
+      {
+        pedidoId: 14,
+        archivos: [
+          {
+            id: 'archivo-1',
+            nombreArchivo: 'arte.pdf',
+            tamano: 3,
+            tipo: 'application/pdf',
+          },
+        ],
+      },
+      remitente.socket,
+    );
+    if (!invitacion.ok) throw new Error(invitacion.error);
+    gateway.responderTransferencia(
+      { transferenciaId: invitacion.transferenciaId, aceptada: true },
+      empleado.socket,
+    );
+
+    expect(
+      gateway.retransmitirSenal(
+        {
+          transferenciaId: invitacion.transferenciaId,
+          destinatarioSocketId: 'empleado-31',
+          tipo: 'oferta',
+          valor: { type: 'offer', sdp: 'oferta-prueba' },
+        },
+        intruso.socket,
+      ),
+    ).toEqual({
+      ok: false,
+      error: 'La señal de conexión no es válida.',
+    });
   });
 });

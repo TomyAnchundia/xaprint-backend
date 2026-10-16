@@ -1,4 +1,12 @@
-import { IsIn, IsInt, IsOptional, IsPositive, Max } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsPositive,
+  IsString,
+  Max,
+  MaxLength,
+} from 'class-validator';
 
 export class RegistrarMovimientoDto {
   @IsOptional()
@@ -18,4 +26,9 @@ export class RegistrarMovimientoDto {
   @IsPositive()
   @Max(2147483647)
   cantidad!: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  descripcion?: string;
 }

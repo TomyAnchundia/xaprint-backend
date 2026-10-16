@@ -60,12 +60,16 @@ export class InventarioService {
   }
 
   async obtenerColores() {
-    return this.database.db.select().from(coloresInventario).orderBy(coloresInventario.nombre);
+    return this.database.db
+      .select()
+      .from(coloresInventario)
+      .orderBy(coloresInventario.nombre);
   }
 
   async crearColor(datos: { nombre: string }) {
     const nombre = datos.nombre.trim();
-    if (!nombre) throw new BadRequestException('El nombre del color es obligatorio');
+    if (!nombre)
+      throw new BadRequestException('El nombre del color es obligatorio');
     const existentes = await this.database.db
       .select({ nombre: coloresInventario.nombre })
       .from(coloresInventario);
@@ -181,7 +185,9 @@ export class InventarioService {
       .limit(1);
     if (!existente) throw new NotFoundException('Talla no encontrada');
     if (existente.nombre === 'Única') {
-      throw new BadRequestException('La talla Única es del sistema y no se puede editar');
+      throw new BadRequestException(
+        'La talla Única es del sistema y no se puede editar',
+      );
     }
     const tallas = await this.database.db
       .select({ id: tallasInventario.id, nombre: tallasInventario.nombre })
@@ -212,7 +218,9 @@ export class InventarioService {
       .limit(1);
     if (!existente) throw new NotFoundException('Talla no encontrada');
     if (existente.nombre === 'Única') {
-      throw new BadRequestException('La talla Única es del sistema y no se puede eliminar');
+      throw new BadRequestException(
+        'La talla Única es del sistema y no se puede eliminar',
+      );
     }
     const [variante] = await this.database.db
       .select({ id: variantesProductoInventario.id })
@@ -554,9 +562,7 @@ export class InventarioService {
     for (const sale of creditSales) {
       const balance = Math.max(
         0,
-        Math.round(
-          (sale.total - (paidBySale.get(sale.id) ?? 0)) * 100,
-        ) / 100,
+        Math.round((sale.total - (paidBySale.get(sale.id) ?? 0)) * 100) / 100,
       );
       balanceByCustomer.set(
         sale.clienteId,
@@ -623,7 +629,8 @@ export class InventarioService {
       );
     }
     const ventasConSaldo = ventas.map((venta) => {
-      const pagado = Math.round((pagadoPorVenta.get(venta.id) ?? 0) * 100) / 100;
+      const pagado =
+        Math.round((pagadoPorVenta.get(venta.id) ?? 0) * 100) / 100;
       return {
         id: `V-${venta.id}`,
         fecha: venta.createdAt,
@@ -886,8 +893,13 @@ export class InventarioService {
     const categoria = await this.obtenerCategoria(datos.categoriaId);
     const esInsumo = this.esCategoria(categoria.nombre, 'insumos');
     const esPrenda = this.esCategoria(categoria.nombre, 'prenda');
-    if (!esInsumo && (datos.unidadesPorCaja != null || datos.precioCaja != null)) {
-      throw new BadRequestException('La venta por caja solo está disponible para insumos');
+    if (
+      !esInsumo &&
+      (datos.unidadesPorCaja != null || datos.precioCaja != null)
+    ) {
+      throw new BadRequestException(
+        'La venta por caja solo está disponible para insumos',
+      );
     }
     this.validarConfiguracionCaja(datos.unidadesPorCaja, datos.precioCaja);
     const producto = await this.database.db.transaction(async (tx) => {
@@ -904,13 +916,17 @@ export class InventarioService {
       if (!variantes.length) {
         throw new BadRequestException('Selecciona al menos una variante');
       }
-      const claves = variantes.map((variante) => `${variante.tallaId}:${variante.colorId ?? ''}`);
+      const claves = variantes.map(
+        (variante) => `${variante.tallaId}:${variante.colorId ?? ''}`,
+      );
       if (new Set(claves).size !== claves.length) {
         throw new BadRequestException(
           'No puedes repetir una combinación de talla y color en el producto',
         );
       }
-      const tallaIds = [...new Set(variantes.map((variante) => variante.tallaId))];
+      const tallaIds = [
+        ...new Set(variantes.map((variante) => variante.tallaId)),
+      ];
       const idsTallasExistentes = await tx
         .select({ id: tallasInventario.id })
         .from(tallasInventario)
@@ -920,7 +936,13 @@ export class InventarioService {
           'Una de las tallas seleccionadas no existe',
         );
       }
-      const colorIds = [...new Set(variantes.flatMap((variante) => variante.colorId ? [variante.colorId] : []))];
+      const colorIds = [
+        ...new Set(
+          variantes.flatMap((variante) =>
+            variante.colorId ? [variante.colorId] : [],
+          ),
+        ),
+      ];
       const coloresExistentes = colorIds.length
         ? await tx
             .select({ id: coloresInventario.id })
@@ -928,7 +950,9 @@ export class InventarioService {
             .where(inArray(coloresInventario.id, colorIds))
         : [];
       if (coloresExistentes.length !== colorIds.length) {
-        throw new NotFoundException('Uno de los colores seleccionados no existe');
+        throw new NotFoundException(
+          'Uno de los colores seleccionados no existe',
+        );
       }
       const tallaUnicaId = await this.obtenerTallaUnicaId(tx);
       if (!esPrenda && colorIds.length > 0) {
@@ -936,11 +960,21 @@ export class InventarioService {
           'Los colores solo se pueden configurar en productos de categoría Prenda',
         );
       }
-      if (!esPrenda && variantes.some((variante) => variante.tallaId !== tallaUnicaId)) {
-        throw new BadRequestException('Solo los productos de categoría Prenda pueden tener tallas');
+      if (
+        !esPrenda &&
+        variantes.some((variante) => variante.tallaId !== tallaUnicaId)
+      ) {
+        throw new BadRequestException(
+          'Solo los productos de categoría Prenda pueden tener tallas',
+        );
       }
-      if (esPrenda && variantes.some((variante) => variante.tallaId === tallaUnicaId)) {
-        throw new BadRequestException('Los productos de categoría Prenda deben usar tallas configuradas');
+      if (
+        esPrenda &&
+        variantes.some((variante) => variante.tallaId === tallaUnicaId)
+      ) {
+        throw new BadRequestException(
+          'Los productos de categoría Prenda deben usar tallas configuradas',
+        );
       }
       if (esPrenda) {
         this.validarPreciosPorTalla(
@@ -958,8 +992,8 @@ export class InventarioService {
           codigoBarras: 'SKU-PENDING',
           categoriaId: categoria.id,
           precio: datos.precio,
-          unidadesPorCaja: esInsumo ? datos.unidadesPorCaja ?? null : null,
-          precioCaja: esInsumo ? datos.precioCaja ?? null : null,
+          unidadesPorCaja: esInsumo ? (datos.unidadesPorCaja ?? null) : null,
+          precioCaja: esInsumo ? (datos.precioCaja ?? null) : null,
           existencia: variantes.reduce(
             (total, variante) => total + variante.existencia,
             0,
@@ -991,7 +1025,9 @@ export class InventarioService {
             codigoBarras: `BC-${skuVariante}`,
             existencia: varianteDatos.existencia,
             stockMinimo: varianteDatos.stockMinimo ?? 0,
-            precio: esPrenda ? varianteDatos.precio ?? datos.precio : datos.precio,
+            precio: esPrenda
+              ? (varianteDatos.precio ?? datos.precio)
+              : datos.precio,
           })
           .returning();
         const [atributos] = await tx
@@ -1021,7 +1057,10 @@ export class InventarioService {
           await tx.insert(movimientosInventario).values({
             productoId: productoCreado.id,
             varianteId: variante.id,
-            tallaNombre: this.etiquetaVariante(atributos.talla, atributos.color),
+            tallaNombre: this.etiquetaVariante(
+              atributos.talla,
+              atributos.color,
+            ),
             productoNombre: productoCreado.nombre,
             usuarioId: usuario.id,
             tipo: 'Ingreso',
@@ -1088,7 +1127,9 @@ export class InventarioService {
             ? producto.unidadesPorCaja
             : datos.unidadesPorCaja;
         const precioCaja =
-          datos.precioCaja === undefined ? producto.precioCaja : datos.precioCaja;
+          datos.precioCaja === undefined
+            ? producto.precioCaja
+            : datos.precioCaja;
         this.validarConfiguracionCaja(unidadesPorCaja, precioCaja);
         cambios.unidadesPorCaja = unidadesPorCaja;
         cambios.precioCaja = precioCaja;
@@ -1113,8 +1154,7 @@ export class InventarioService {
       if (!datos.variantes) {
         const tieneAtributosDePrenda = variantesActuales.some(
           ({ variante }) =>
-            variante.colorId !== null ||
-            variante.tallaId !== tallaUnicaId,
+            variante.colorId !== null || variante.tallaId !== tallaUnicaId,
         );
         if (!esPrenda && tieneAtributosDePrenda) {
           throw new BadRequestException(
@@ -1146,7 +1186,9 @@ export class InventarioService {
             'No puedes repetir una combinación de talla y color en el producto',
           );
         }
-        const tallaIds = [...new Set(datos.variantes.map((variante) => variante.tallaId))];
+        const tallaIds = [
+          ...new Set(datos.variantes.map((variante) => variante.tallaId)),
+        ];
         const tallasExistentes = await tx
           .select({ id: tallasInventario.id })
           .from(tallasInventario)
@@ -1156,7 +1198,13 @@ export class InventarioService {
             'Una de las tallas seleccionadas no existe',
           );
         }
-        const colorIds = [...new Set(datos.variantes.flatMap((variante) => variante.colorId ? [variante.colorId] : []))];
+        const colorIds = [
+          ...new Set(
+            datos.variantes.flatMap((variante) =>
+              variante.colorId ? [variante.colorId] : [],
+            ),
+          ),
+        ];
         const coloresExistentes = colorIds.length
           ? await tx
               .select({ id: coloresInventario.id })
@@ -1164,7 +1212,9 @@ export class InventarioService {
               .where(inArray(coloresInventario.id, colorIds))
           : [];
         if (coloresExistentes.length !== colorIds.length) {
-          throw new NotFoundException('Uno de los colores seleccionados no existe');
+          throw new NotFoundException(
+            'Uno de los colores seleccionados no existe',
+          );
         }
         if (!esPrenda && colorIds.length > 0) {
           throw new BadRequestException(
@@ -1173,9 +1223,13 @@ export class InventarioService {
         }
         if (
           (!esPrenda &&
-            datos.variantes.some((variante) => variante.tallaId !== tallaUnicaId)) ||
+            datos.variantes.some(
+              (variante) => variante.tallaId !== tallaUnicaId,
+            )) ||
           (esPrenda &&
-            datos.variantes.some((variante) => variante.tallaId === tallaUnicaId))
+            datos.variantes.some(
+              (variante) => variante.tallaId === tallaUnicaId,
+            ))
         ) {
           throw new BadRequestException(
             'Las tallas solo se pueden configurar en productos de categoría Prenda',
@@ -1219,10 +1273,10 @@ export class InventarioService {
                 existencia: varianteDatos.existencia,
                 stockMinimo: varianteDatos.stockMinimo ?? 0,
                 precio: esPrenda
-                  ? varianteDatos.precio ??
+                  ? (varianteDatos.precio ??
                     existente.variante.precio ??
-                    producto.precio
-                  : datos.precio ?? producto.precio,
+                    producto.precio)
+                  : (datos.precio ?? producto.precio),
               })
               .where(eq(variantesProductoInventario.id, existente.variante.id));
             if (diferencia !== 0) {
@@ -1264,8 +1318,8 @@ export class InventarioService {
                 existencia: varianteDatos.existencia,
                 stockMinimo: varianteDatos.stockMinimo ?? 0,
                 precio: esPrenda
-                  ? varianteDatos.precio ?? datos.precio ?? producto.precio
-                  : datos.precio ?? producto.precio,
+                  ? (varianteDatos.precio ?? datos.precio ?? producto.precio)
+                  : (datos.precio ?? producto.precio),
               })
               .returning();
             await tx
@@ -1301,7 +1355,8 @@ export class InventarioService {
             claves.includes(
               `${variante.variante.tallaId}:${variante.variante.colorId ?? ''}`,
             )
-          ) continue;
+          )
+            continue;
           const [venta] = await tx
             .select({ id: itemsVentaInventario.id })
             .from(itemsVentaInventario)
@@ -1341,7 +1396,7 @@ export class InventarioService {
             stockMinimo: datos.stockMinimo ?? variante.variante.stockMinimo,
             precio: esPrenda
               ? variante.variante.precio
-              : datos.precio ?? variante.variante.precio,
+              : (datos.precio ?? variante.variante.precio),
           })
           .where(eq(variantesProductoInventario.id, variante.variante.id));
         if (diferencia !== 0) {
@@ -1413,6 +1468,7 @@ export class InventarioService {
         size: movimientosInventario.tallaNombre,
         type: movimientosInventario.tipo,
         quantity: movimientosInventario.cantidad,
+        description: movimientosInventario.descripcion,
         date: movimientosInventario.createdAt,
         user: usuariosInventario.username,
       })
@@ -1506,6 +1562,8 @@ export class InventarioService {
           usuarioId: usuario.id,
           tipo: datos.tipo,
           cantidad: datos.cantidad,
+          descripcion:
+            datos.tipo === 'Salida' ? datos.descripcion?.trim() || null : null,
         })
         .returning();
       return {
@@ -1516,6 +1574,7 @@ export class InventarioService {
         size: movimiento.tallaNombre,
         type: movimiento.tipo,
         quantity: movimiento.cantidad,
+        description: movimiento.descripcion,
         date: movimiento.createdAt,
         user: usuario.username,
       };
@@ -1620,14 +1679,11 @@ export class InventarioService {
           consumo,
           subtotal: Math.round(item.precio * item.cantidad * 100) / 100,
           descuentoMonto:
-            Math.round(
-              item.precio * item.cantidad * item.descuentoPorcentaje,
-            ) / 100,
+            Math.round(item.precio * item.cantidad * item.descuentoPorcentaje) /
+            100,
           total:
             Math.round(
-              item.precio *
-                item.cantidad *
-                (100 - item.descuentoPorcentaje),
+              item.precio * item.cantidad * (100 - item.descuentoPorcentaje),
             ) / 100,
         };
       });
@@ -1763,16 +1819,16 @@ export class InventarioService {
             descuentoPorcentaje,
             descuentoMonto,
           }) => ({
-          productId: producto.id,
-          variantId: variante.id,
-          size: tallaNombre,
-          name: producto.nombre,
-          presentation: presentacion,
-          unitsPerPresentation: unidadesPorPresentacion,
-          quantity: cantidad,
-          price: precio,
-          discountPercentage: descuentoPorcentaje,
-          discountAmount: descuentoMonto,
+            productId: producto.id,
+            variantId: variante.id,
+            size: tallaNombre,
+            name: producto.nombre,
+            presentation: presentacion,
+            unitsPerPresentation: unidadesPorPresentacion,
+            quantity: cantidad,
+            price: precio,
+            discountPercentage: descuentoPorcentaje,
+            discountAmount: descuentoMonto,
           }),
         ),
         payment: venta.metodoPago,
@@ -1799,10 +1855,7 @@ export class InventarioService {
         .where(eq(ventasInventario.id, id))
         .limit(1);
       if (!venta) throw new NotFoundException('Venta no encontrada');
-      if (
-        venta.metodoPago === 'Crédito' ||
-        datos.metodoPago === 'Crédito'
-      ) {
+      if (venta.metodoPago === 'Crédito' || datos.metodoPago === 'Crédito') {
         throw new BadRequestException(
           'Las ventas a crédito no se pueden editar',
         );
@@ -1920,14 +1973,11 @@ export class InventarioService {
         ...item,
         subtotal: Math.round(item.precio * item.cantidad * 100) / 100,
         descuentoMonto:
-          Math.round(
-            item.precio * item.cantidad * item.descuentoPorcentaje,
-          ) / 100,
+          Math.round(item.precio * item.cantidad * item.descuentoPorcentaje) /
+          100,
         total:
           Math.round(
-            item.precio *
-              item.cantidad *
-              (100 - item.descuentoPorcentaje),
+            item.precio * item.cantidad * (100 - item.descuentoPorcentaje),
           ) / 100,
       }));
       const idsVariantes = new Set([
@@ -2090,16 +2140,16 @@ export class InventarioService {
             descuentoPorcentaje,
             descuentoMonto,
           }) => ({
-          productId: producto.id,
-          variantId: variante.id,
-          size: tallaNombre,
-          name: producto.nombre,
-          presentation: presentacion,
-          unitsPerPresentation: unidadesPorPresentacion,
-          quantity: cantidad,
-          price: precio,
-          discountPercentage: descuentoPorcentaje,
-          discountAmount: descuentoMonto,
+            productId: producto.id,
+            variantId: variante.id,
+            size: tallaNombre,
+            name: producto.nombre,
+            presentation: presentacion,
+            unitsPerPresentation: unidadesPorPresentacion,
+            quantity: cantidad,
+            price: precio,
+            discountPercentage: descuentoPorcentaje,
+            discountAmount: descuentoMonto,
           }),
         ),
         payment: datos.metodoPago,
@@ -2308,7 +2358,10 @@ export class InventarioService {
     const preciosPorTalla = new Map<number, number>();
     for (const variante of variantes) {
       const precioExistente = preciosPorTalla.get(variante.tallaId);
-      if (precioExistente !== undefined && precioExistente !== variante.precio) {
+      if (
+        precioExistente !== undefined &&
+        precioExistente !== variante.precio
+      ) {
         throw new BadRequestException(
           'El precio debe ser igual para todos los colores de una misma talla',
         );
@@ -2508,7 +2561,15 @@ export class InventarioService {
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
         .match(/[a-z0-9]+/g) ?? [];
-    const palabrasIgnoradas = new Set(['de', 'del', 'la', 'las', 'el', 'los', 'y']);
+    const palabrasIgnoradas = new Set([
+      'de',
+      'del',
+      'la',
+      'las',
+      'el',
+      'los',
+      'y',
+    ]);
     const palabrasProducto = normalizar(nombreProducto).filter(
       (palabra) => !palabrasIgnoradas.has(palabra),
     );

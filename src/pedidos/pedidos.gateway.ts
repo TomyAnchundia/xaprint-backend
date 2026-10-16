@@ -12,7 +12,6 @@ import { eq } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import { pedidos } from '../database/schema';
 
-const TAMANO_MAXIMO_BLOQUE = 64 * 1024;
 const TIEMPO_RESPUESTA_MS = 90 * 1000;
 const TIEMPO_TRANSFERENCIA_MS = 15 * 60 * 1000;
 
@@ -52,8 +51,7 @@ type ArchivoTransferencia = {
   nombreArchivo: string;
   tamano: number;
   tipo: string;
-  siguienteSecuencia: number;
-  bytesEnviados: number;
+  completado: boolean;
 };
 
 type TransferenciaActiva = {
@@ -264,8 +262,7 @@ export class PedidosGateway {
             nombreArchivo: this.limpiarNombreArchivo(archivo.nombreArchivo),
             tamano: archivo.tamano,
             tipo: archivo.tipo.slice(0, 255),
-            siguienteSecuencia: 0,
-            bytesEnviados: 0,
+            completado: false,
           },
         ]),
       ),
@@ -341,58 +338,65 @@ export class PedidosGateway {
     return { ok: true };
   }
 
-  @SubscribeMessage('transferencia:bloque')
-  enviarBloque(
+  @SubscribeMessage('transferencia:senal')
+  retransmitirSenal(
     @MessageBody()
     datos: {
       transferenciaId: string;
-      archivoId: string;
-      secuencia: number;
-      contenido: Uint8Array | Buffer;
+      destinatarioSocketId: string;
+      tipo: 'oferta' | 'respuesta' | 'candidato';
+      valor: unknown;
     },
     @ConnectedSocket() client: SocketTransferencias,
   ): ResultadoTransferencia {
     const transferencia = this.transferencias.get(datos?.transferenciaId);
-    const archivo = transferencia?.archivos.get(datos?.archivoId);
+    const destinatario = transferencia?.destinatarios.get(
+      datos?.destinatarioSocketId,
+    );
+    const valor =
+      typeof datos?.valor === 'object' && datos.valor !== null
+        ? (datos.valor as Record<string, unknown>)
+        : null;
     if (
       !transferencia ||
-      !archivo ||
-      transferencia.remitenteSocketId !== client.id ||
-      !Number.isInteger(datos.secuencia) ||
-      datos.secuencia !== archivo.siguienteSecuencia ||
-      !(datos.contenido instanceof Uint8Array) ||
-      datos.contenido.byteLength > TAMANO_MAXIMO_BLOQUE
+      typeof datos?.destinatarioSocketId !== 'string' ||
+      typeof datos?.tipo !== 'string' ||
+      !destinatario ||
+      destinatario.estado !== 'aceptada' ||
+      !valor ||
+      !['oferta', 'respuesta', 'candidato'].includes(datos.tipo)
     ) {
-      return { ok: false, error: 'No se pudo continuar la transferencia.' };
+      return { ok: false, error: 'No se pudo establecer la conexión directa.' };
     }
 
-    const bytesRestantes = archivo.tamano - archivo.bytesEnviados;
-    if (datos.contenido.byteLength > bytesRestantes) {
-      return {
-        ok: false,
-        error: 'El archivo recibido no coincide con su tamaño.',
-      };
-    }
-    const destinatarios = [...transferencia.destinatarios.entries()].filter(
-      ([, destinatario]) => destinatario.estado === 'aceptada',
-    );
-    if (destinatarios.length === 0) {
-      return {
-        ok: false,
-        error: 'No quedan empleados conectados para recibir el archivo.',
-      };
+    const esRemitente = transferencia.remitenteSocketId === client.id;
+    const esDestinatario = datos.destinatarioSocketId === client.id;
+    const senalValida =
+      datos.tipo === 'candidato'
+        ? typeof valor.candidate === 'string' && valor.candidate.length <= 4096
+        : (datos.tipo === 'oferta' && esRemitente) ||
+            (datos.tipo === 'respuesta' && esDestinatario)
+          ? typeof valor.sdp === 'string' && valor.sdp.length <= 200_000
+          : false;
+    if (
+      (!esRemitente && !esDestinatario) ||
+      (esRemitente && datos.tipo === 'respuesta') ||
+      (esDestinatario && datos.tipo === 'oferta') ||
+      !senalValida
+    ) {
+      return { ok: false, error: 'La señal de conexión no es válida.' };
     }
 
-    for (const [socketId] of destinatarios) {
-      this.server.to(socketId).emit('transferencia:bloque', {
-        transferenciaId: datos.transferenciaId,
-        archivoId: datos.archivoId,
-        secuencia: datos.secuencia,
-        contenido: datos.contenido,
-      });
-    }
-    archivo.siguienteSecuencia += 1;
-    archivo.bytesEnviados += datos.contenido.byteLength;
+    const socketDestino = esRemitente
+      ? datos.destinatarioSocketId
+      : transferencia.remitenteSocketId;
+    this.server.to(socketDestino).emit('transferencia:senal', {
+      transferenciaId: datos.transferenciaId,
+      destinatarioSocketId: datos.destinatarioSocketId,
+      remitenteSocketId: transferencia.remitenteSocketId,
+      tipo: datos.tipo,
+      valor: datos.valor,
+    });
     this.reiniciarTimeout(datos.transferenciaId, transferencia);
     return { ok: true };
   }
@@ -408,7 +412,10 @@ export class PedidosGateway {
       !transferencia ||
       !archivo ||
       transferencia.remitenteSocketId !== client.id ||
-      archivo.bytesEnviados !== archivo.tamano
+      archivo.completado ||
+      [...transferencia.destinatarios.values()].every(
+        (destinatario) => destinatario.estado !== 'aceptada',
+      )
     ) {
       return {
         ok: false,
@@ -416,6 +423,7 @@ export class PedidosGateway {
       };
     }
 
+    archivo.completado = true;
     this.server
       .to(
         [...transferencia.destinatarios.entries()]
@@ -426,11 +434,7 @@ export class PedidosGateway {
         transferenciaId: datos.transferenciaId,
         archivoId: datos.archivoId,
       });
-    if (
-      [...transferencia.archivos.values()].every(
-        (item) => item.bytesEnviados === item.tamano,
-      )
-    ) {
+    if ([...transferencia.archivos.values()].every((item) => item.completado)) {
       transferencia.envioCompletado = true;
       this.eliminarSiTodosRecibieron(datos.transferenciaId, transferencia);
     }
@@ -453,7 +457,7 @@ export class PedidosGateway {
       !destinatario ||
       destinatario.estado !== 'aceptada' ||
       !archivo ||
-      archivo.bytesEnviados !== archivo.tamano
+      !archivo.completado
     ) {
       return {
         ok: false,
@@ -574,14 +578,18 @@ export class PedidosGateway {
       return;
     }
 
-    const aceptados = destinatarios
-      .filter(([, destinatario]) => destinatario.estado === 'aceptada')
-      .map(([socketId]) => socketId);
+    const aceptados = destinatarios.filter(
+      ([, destinatario]) => destinatario.estado === 'aceptada',
+    );
     this.server
       .to(transferencia.remitenteSocketId)
       .emit('transferencia:destinatarios-listos', {
         transferenciaId,
         cantidadAceptada: aceptados.length,
+        destinatarios: aceptados.map(([socketId, destinatario]) => ({
+          socketId,
+          username: destinatario.username,
+        })),
       });
 
     if (aceptados.length === 0) {
