@@ -855,6 +855,38 @@ describe('InventarioService', () => {
         ?.stock,
     ).toBe(6);
     expect((await service.obtenerVentas()).length).toBe(5);
+    const estadisticasAntesDeRevertir = await service.obtenerEstadisticas();
+    await expect(
+      service.revertirVenta(Number(primeraVentaCredito.id.slice(2)), admin),
+    ).resolves.toMatchObject({
+      id: primeraVentaCredito.id,
+      eliminado: true,
+      unidadesRestauradas: 73,
+      abonosEliminados: 2,
+      montoAbonosEliminados: 65,
+    });
+    expect(
+      (await service.obtenerProductos()).find((item) => item.id === tazas.id)
+        ?.stock,
+    ).toBe(199);
+    expect((await service.obtenerVentas()).length).toBe(4);
+    expect(await service.obtenerEstadisticas()).toMatchObject({
+      total: estadisticasAntesDeRevertir.total - primeraVentaCredito.total,
+      transacciones: estadisticasAntesDeRevertir.transacciones - 1,
+    });
+    expect(await service.obtenerCuentaCliente(cliente.id)).toMatchObject({
+      saldoDeuda: 1,
+    });
+    expect(
+      (await service.obtenerMovimientos()).some(
+        (movimiento) =>
+          movimiento.description ===
+          `Reversión de venta ${primeraVentaCredito.id}`,
+      ),
+    ).toBe(true);
+    await expect(
+      service.revertirVenta(Number(primeraVentaCredito.id.slice(2)), admin),
+    ).rejects.toThrow('Venta no encontrada');
 
     await expect(service.eliminarUsuario(admin.id, admin.id)).rejects.toThrow(
       'No puedes eliminar la cuenta con la que iniciaste sesión',

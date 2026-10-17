@@ -339,6 +339,18 @@ export class InventarioController {
     );
   }
 
+  @Delete('ventas/:id')
+  @UseGuards(InventarioAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  revertirVenta(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() request: RequestConUsuarioInventario,
+  ) {
+    return this.notificarCambio(
+      this.inventarioService.revertirVenta(id, request.user),
+    );
+  }
+
   @Get('resumen')
   @UseGuards(InventarioAuthGuard, RolesGuard)
   @Roles('ADMIN', 'NORMAL')

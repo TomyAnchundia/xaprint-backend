@@ -2161,6 +2161,139 @@ export class InventarioService {
     });
   }
 
+  async revertirVenta(id: number, usuario: UsuarioInventarioActual) {
+    return this.database.db.transaction(async (tx) => {
+      const [venta] = await tx
+        .select({ id: ventasInventario.id })
+        .from(ventasInventario)
+        .where(eq(ventasInventario.id, id))
+        .limit(1);
+      if (!venta) throw new NotFoundException('Venta no encontrada');
+
+      const lineas = await tx
+        .select()
+        .from(itemsVentaInventario)
+        .where(eq(itemsVentaInventario.ventaId, id));
+      const cantidadesPorVariante = new Map<
+        number,
+        {
+          productoId: number;
+          productoNombre: string;
+          varianteId: number;
+          variante: VarianteProductoInventario;
+          tallaNombre: string;
+          cantidad: number;
+        }
+      >();
+
+      for (const linea of lineas) {
+        const varianteId = await this.resolverVarianteVenta(tx, {
+          ...(linea.varianteId
+            ? { varianteId: linea.varianteId }
+            : { productoId: linea.productoId }),
+        });
+        const [detalle] = await tx
+          .select({
+            productoId: productosInventario.id,
+            productoNombre: productosInventario.nombre,
+            variante: variantesProductoInventario,
+            tallaNombre: tallasInventario.nombre,
+            colorNombre: coloresInventario.nombre,
+          })
+          .from(variantesProductoInventario)
+          .innerJoin(
+            productosInventario,
+            eq(variantesProductoInventario.productoId, productosInventario.id),
+          )
+          .innerJoin(
+            tallasInventario,
+            eq(variantesProductoInventario.tallaId, tallasInventario.id),
+          )
+          .leftJoin(
+            coloresInventario,
+            eq(variantesProductoInventario.colorId, coloresInventario.id),
+          )
+          .where(eq(variantesProductoInventario.id, varianteId))
+          .limit(1);
+        if (!detalle) {
+          throw new NotFoundException(
+            `No se encontró la variante del producto ${linea.productoNombre}`,
+          );
+        }
+
+        const cantidad =
+          linea.cantidad * linea.unidadesPorPresentacion +
+          (cantidadesPorVariante.get(varianteId)?.cantidad ?? 0);
+        if (!Number.isSafeInteger(cantidad)) {
+          throw new BadRequestException(
+            'La cantidad a reponer supera el límite permitido',
+          );
+        }
+        cantidadesPorVariante.set(varianteId, {
+          productoId: detalle.productoId,
+          productoNombre: detalle.productoNombre,
+          varianteId,
+          variante: detalle.variante,
+          tallaNombre: this.etiquetaVariante(
+            detalle.tallaNombre,
+            detalle.colorNombre,
+          ),
+          cantidad,
+        });
+      }
+
+      for (const detalle of cantidadesPorVariante.values()) {
+        const existencia = detalle.variante.existencia + detalle.cantidad;
+        if (!Number.isSafeInteger(existencia)) {
+          throw new BadRequestException(
+            'La existencia resultante supera el límite permitido',
+          );
+        }
+        await tx
+          .update(variantesProductoInventario)
+          .set({ existencia })
+          .where(eq(variantesProductoInventario.id, detalle.varianteId));
+        await tx.insert(movimientosInventario).values({
+          productoId: detalle.productoId,
+          varianteId: detalle.varianteId,
+          tallaNombre: detalle.tallaNombre,
+          productoNombre: detalle.productoNombre,
+          usuarioId: usuario.id,
+          tipo: 'Ingreso',
+          cantidad: detalle.cantidad,
+          descripcion: `Reversión de venta V-${id}`,
+        });
+        await this.actualizarStockAgregado(tx, detalle.productoId);
+      }
+
+      const abonos = await tx
+        .select({ monto: abonosVentasInventario.monto })
+        .from(abonosVentasInventario)
+        .where(eq(abonosVentasInventario.ventaId, id));
+      await tx
+        .delete(abonosVentasInventario)
+        .where(eq(abonosVentasInventario.ventaId, id));
+      await tx
+        .delete(itemsVentaInventario)
+        .where(eq(itemsVentaInventario.ventaId, id));
+      await tx.delete(ventasInventario).where(eq(ventasInventario.id, id));
+
+      return {
+        id: `V-${id}`,
+        eliminado: true,
+        unidadesRestauradas: [...cantidadesPorVariante.values()].reduce(
+          (total, detalle) => total + detalle.cantidad,
+          0,
+        ),
+        abonosEliminados: abonos.length,
+        montoAbonosEliminados:
+          Math.round(
+            abonos.reduce((total, abono) => total + abono.monto, 0) * 100,
+          ) / 100,
+      };
+    });
+  }
+
   async obtenerVentas() {
     const ventas = await this.database.db
       .select({
