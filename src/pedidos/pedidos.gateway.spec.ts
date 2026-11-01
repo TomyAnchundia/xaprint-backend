@@ -1,5 +1,4 @@
 import type { JwtService } from '@nestjs/jwt';
-import type { DatabaseService } from '../database/database.service';
 import { PedidosGateway } from './pedidos.gateway';
 
 jest.mock('@nestjs/jwt', () => ({
@@ -8,7 +7,6 @@ jest.mock('@nestjs/jwt', () => ({
 
 describe('PedidosGateway transferencias', () => {
   let gateway: PedidosGateway;
-  let seleccionarPedido: jest.Mock;
   let obtenerSockets: jest.Mock;
   let emitirA: jest.Mock;
   let emitirEventoSala: jest.Mock;
@@ -29,9 +27,6 @@ describe('PedidosGateway transferencias', () => {
   }
 
   beforeEach(() => {
-    seleccionarPedido = jest
-      .fn()
-      .mockResolvedValue([{ servicio: 'TEXTIL', ancho: 31 }]);
     obtenerSockets = jest.fn().mockResolvedValue([]);
     emitirEventoSala = jest.fn();
     emitirA = jest.fn().mockReturnValue({ emit: emitirEventoSala });
@@ -39,18 +34,7 @@ describe('PedidosGateway transferencias', () => {
     const jwtService = {
       verifyAsync: jest.fn(),
     } as unknown as JwtService;
-    const database = {
-      db: {
-        select: jest.fn().mockReturnValue({
-          from: jest.fn().mockReturnValue({
-            where: jest.fn().mockReturnValue({
-              limit: seleccionarPedido,
-            }),
-          }),
-        }),
-      },
-    } as unknown as DatabaseService;
-    gateway = new PedidosGateway(jwtService, database);
+    gateway = new PedidosGateway(jwtService);
     gateway.server = {
       fetchSockets: obtenerSockets,
       to: emitirA,
@@ -81,7 +65,7 @@ describe('PedidosGateway transferencias', () => {
 
     const resultado = await gateway.invitarTransferencia(
       {
-        pedidoId: 14,
+        area: 'TEXTIL31',
         archivos: [
           {
             id: 'archivo-1',
@@ -107,7 +91,7 @@ describe('PedidosGateway transferencias', () => {
     expect(empleado31.emitir).toHaveBeenCalledWith(
       'transferencia:solicitud',
       expect.objectContaining({
-        pedidoId: 14,
+        area: 'TEXTIL31',
         remitente: 'diseno',
       }),
     );
@@ -133,7 +117,7 @@ describe('PedidosGateway transferencias', () => {
 
     const resultado = await gateway.invitarTransferencia(
       {
-        pedidoId: 14,
+        area: 'TEXTIL31',
         archivos: [
           {
             id: 'archivo-1',
@@ -150,8 +134,92 @@ describe('PedidosGateway transferencias', () => {
       ok: false,
       error: 'Solo diseño o administración puede enviar archivos.',
     });
-    expect(seleccionarPedido).not.toHaveBeenCalled();
   });
+
+  it('rechaza un área de transferencia no disponible', async () => {
+    const remitente = crearSocket('diseno', {
+      id: 1,
+      username: 'diseno',
+      rol: 'DISENADOR',
+      area: null,
+    });
+
+    const resultado = await gateway.invitarTransferencia(
+      {
+        area: 'TEXTIL',
+        archivos: [
+          {
+            id: 'archivo-1',
+            nombreArchivo: 'arte.pdf',
+            tamano: 0,
+            tipo: 'application/pdf',
+          },
+        ],
+      },
+      remitente.socket,
+    );
+
+    expect(resultado).toEqual({
+      ok: false,
+      error: 'El área o la lista de archivos no es válida.',
+    });
+    expect(obtenerSockets).not.toHaveBeenCalled();
+  });
+
+  it.each(['UV', 'TEXTIL58'] as const)(
+    'envía la solicitud solo al área %s',
+    async (area) => {
+      const remitente = crearSocket('diseno', {
+        id: 1,
+        username: 'diseno',
+        rol: 'DISENADOR',
+        area: null,
+      });
+      const empleadoDestino = crearSocket(`empleado-${area}`, {
+        id: 2,
+        username: 'destino',
+        rol: 'EMPLEADO',
+        area,
+      });
+      const empleadoOtro = crearSocket('empleado-otro', {
+        id: 3,
+        username: 'otro',
+        rol: 'EMPLEADO',
+        area: area === 'UV' ? 'TEXTIL58' : 'UV',
+      });
+      obtenerSockets.mockResolvedValue([
+        empleadoDestino.socket,
+        empleadoOtro.socket,
+      ]);
+
+      const resultado = await gateway.invitarTransferencia(
+        {
+          area,
+          archivos: [
+            {
+              id: 'archivo-1',
+              nombreArchivo: 'arte.pdf',
+              tamano: 0,
+              tipo: 'application/pdf',
+            },
+          ],
+        },
+        remitente.socket,
+      );
+
+      expect(resultado).toMatchObject({
+        ok: true,
+        destinatarios: [
+          { socketId: `empleado-${area}`, username: 'destino' },
+        ],
+      });
+      expect(empleadoDestino.emitir).toHaveBeenCalledWith(
+        'transferencia:solicitud',
+        expect.objectContaining({ area }),
+      );
+      expect(empleadoOtro.emitir).not.toHaveBeenCalled();
+    },
+  );
 
   it('apila tres solicitudes simultáneas para un mismo empleado', async () => {
     const empleado = crearSocket('empleado-31', {
@@ -166,7 +234,7 @@ describe('PedidosGateway transferencias', () => {
       [1, 2, 3].map((numero) =>
         gateway.invitarTransferencia(
           {
-            pedidoId: 14,
+            area: 'TEXTIL31',
             archivos: [
               {
                 id: `archivo-${numero}`,
@@ -220,7 +288,7 @@ describe('PedidosGateway transferencias', () => {
 
     const invitacion = await gateway.invitarTransferencia(
       {
-        pedidoId: 14,
+        area: 'TEXTIL31',
         archivos: [
           {
             id: 'archivo-1',
@@ -324,7 +392,7 @@ describe('PedidosGateway transferencias', () => {
 
     const invitacion = await gateway.invitarTransferencia(
       {
-        pedidoId: 14,
+        area: 'TEXTIL31',
         archivos: [
           {
             id: 'archivo-1',

@@ -8,9 +8,6 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { randomUUID } from 'node:crypto';
 import { DefaultEventsMap, Namespace, Socket } from 'socket.io';
-import { eq } from 'drizzle-orm';
-import { DatabaseService } from '../database/database.service';
-import { pedidos } from '../database/schema';
 
 const TIEMPO_RESPUESTA_MS = 90 * 1000;
 const TIEMPO_TRANSFERENCIA_MS = 15 * 60 * 1000;
@@ -56,7 +53,7 @@ type ArchivoTransferencia = {
 
 type TransferenciaActiva = {
   remitenteSocketId: string;
-  pedidoId: number;
+  area: AreaTransferencia;
   archivos: Map<string, ArchivoTransferencia>;
   destinatarios: Map<string, DestinatarioTransferencia>;
   envioCompletado: boolean;
@@ -64,6 +61,7 @@ type TransferenciaActiva = {
 };
 
 type ResultadoTransferencia = { ok: true } | { ok: false; error: string };
+type AreaTransferencia = 'UV' | 'TEXTIL31' | 'TEXTIL58';
 
 @WebSocketGateway({
   namespace: 'pedidos',
@@ -77,10 +75,7 @@ export class PedidosGateway {
 
   private readonly transferencias = new Map<string, TransferenciaActiva>();
 
-  constructor(
-    private readonly jwtService: JwtService,
-    private readonly database: DatabaseService,
-  ) {}
+  constructor(private readonly jwtService: JwtService) {}
 
   async handleConnection(client: SocketTransferencias) {
     const auth = client.handshake.auth as { token?: unknown };
@@ -181,7 +176,7 @@ export class PedidosGateway {
   async invitarTransferencia(
     @MessageBody()
     datos: {
-      pedidoId: number;
+      area: unknown;
       archivos: {
         id: string;
         nombreArchivo: string;
@@ -209,28 +204,12 @@ export class PedidosGateway {
       };
     }
     if (
-      !Number.isInteger(datos?.pedidoId) ||
+      !this.esAreaTransferencia(datos?.area) ||
       !this.validarArchivos(datos.archivos)
     ) {
       return {
         ok: false,
-        error: 'La lista de archivos no es válida.',
-      };
-    }
-
-    const [pedido] = await this.database.db
-      .select({ servicio: pedidos.servicio, ancho: pedidos.ancho })
-      .from(pedidos)
-      .where(eq(pedidos.id, datos.pedidoId))
-      .limit(1);
-    if (!pedido) {
-      return { ok: false, error: 'No se encontró el pedido.' };
-    }
-    const area = this.obtenerAreaPedido(pedido);
-    if (!area) {
-      return {
-        ok: false,
-        error: 'El pedido no tiene un área de producción válida.',
+        error: 'El área o la lista de archivos no es válida.',
       };
     }
 
@@ -238,7 +217,7 @@ export class PedidosGateway {
     const destinatarios = sockets.flatMap((socket) => {
       const empleado = socket.data.usuario;
       return empleado?.rol === 'EMPLEADO' &&
-        empleado.area === area &&
+        empleado.area === datos.area &&
         socket.id !== client.id
         ? [{ socket, empleado }]
         : [];
@@ -246,14 +225,14 @@ export class PedidosGateway {
     if (destinatarios.length === 0) {
       return {
         ok: false,
-        error: 'No hay empleados conectados en el área de este pedido.',
+        error: 'No hay empleados conectados en el área seleccionada.',
       };
     }
 
     const transferenciaId = randomUUID();
     const transferencia: TransferenciaActiva = {
       remitenteSocketId: client.id,
-      pedidoId: datos.pedidoId,
+      area: datos.area,
       archivos: new Map(
         datos.archivos.map((archivo) => [
           archivo.id,
@@ -287,7 +266,7 @@ export class PedidosGateway {
     for (const { socket } of destinatarios) {
       socket.emit('transferencia:solicitud', {
         transferenciaId,
-        pedidoId: datos.pedidoId,
+        area: transferencia.area,
         archivos: [...transferencia.archivos.values()],
         remitente: usuario.username,
       });
@@ -557,12 +536,8 @@ export class PedidosGateway {
     return nombreArchivo.split(/[\\/]/).pop()?.trim().slice(0, 255) ?? '';
   }
 
-  private obtenerAreaPedido(pedido: { servicio: string; ancho: number }) {
-    if (pedido.servicio === 'UV') return 'UV';
-    if (pedido.servicio !== 'TEXTIL') return null;
-    if (pedido.ancho === 31) return 'TEXTIL31';
-    if (pedido.ancho === 58) return 'TEXTIL58';
-    return null;
+  private esAreaTransferencia(area: unknown): area is AreaTransferencia {
+    return area === 'UV' || area === 'TEXTIL31' || area === 'TEXTIL58';
   }
 
   private notificarDestinatariosListos(
