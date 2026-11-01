@@ -1,17 +1,22 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   ForbiddenException,
   Get,
+  Header,
   NotFoundException,
   Param,
   ParseIntPipe,
   Patch,
   Post,
   Req,
+  UploadedFile,
+  UseInterceptors,
   UseGuards,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
 
 import { JwtAuthGuard } from '../auth/jwt-auth/jwt-auth.guard';
@@ -22,7 +27,16 @@ import { ActualizarPedidoDto } from './dto/actualizar-pedido.dto';
 import { CambiarEstadoPedidoDto } from './dto/cambiar-estado-pedido.dto';
 import { CambiarPrecioEspecialDto } from './dto/cambiar-precio-especial.dto';
 import { CrearPedidoDto } from './dto/crear-pedido.dto';
+import { PedidoReferenciaService } from './pedido-referencia.service';
+import type { ImagenReferenciaSubida } from './pedido-referencia.service';
 import { EstadoPedido, PedidosService } from './pedidos.service';
+
+const TAMANO_MAXIMO_REFERENCIA = 5 * 1024 * 1024;
+const TIPOS_IMAGEN_REFERENCIA = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
 
 interface RequestConUsuario extends Request {
   user: {
@@ -36,7 +50,10 @@ interface RequestConUsuario extends Request {
 @Controller('pedidos')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class PedidosController {
-  constructor(private readonly pedidosService: PedidosService) {}
+  constructor(
+    private readonly pedidosService: PedidosService,
+    private readonly pedidoReferenciaService: PedidoReferenciaService,
+  ) {}
 
   @Get()
   async obtenerTodos(@Req() request: RequestConUsuario) {
@@ -77,7 +94,39 @@ export class PedidosController {
     return this.pedidosService.obtenerHistorial(id);
   }
 
+  @Get(':id/referencia')
+  @Header('Cache-Control', 'private, no-store')
+  async obtenerReferencia(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() request: RequestConUsuario,
+  ) {
+    const pedido = await this.obtenerPedidoPermitido(id, request.user);
+    return this.pedidoReferenciaService.obtenerUrlReferencia(pedido);
+  }
+
+  @Post(':id/referencia')
+  @Roles('ADMIN', 'DISENADOR', 'DISEÑADOR')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: TAMANO_MAXIMO_REFERENCIA },
+    }),
+  )
+  async subirReferencia(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile()
+    archivo: ImagenReferenciaSubida | undefined,
+    @Req() request: RequestConUsuario,
+  ) {
+    const pedido = await this.obtenerPedidoPermitido(id, request.user);
+    if (!archivo) {
+      throw new BadRequestException('Selecciona una imagen de referencia.');
+    }
+    this.validarImagenReferencia(archivo);
+    return this.pedidoReferenciaService.subirReferencia(pedido, archivo);
+  }
+
   @Post()
+  @Roles('ADMIN', 'DISENADOR', 'DISEÑADOR')
   async crear(
     @Body() datos: CrearPedidoDto,
     @Req() request: RequestConUsuario,
@@ -87,6 +136,7 @@ export class PedidosController {
   }
 
   @Patch(':id')
+  @Roles('ADMIN', 'DISENADOR', 'DISEÑADOR')
   async actualizar(
     @Param('id', ParseIntPipe) id: number,
     @Body() datos: ActualizarPedidoDto,
@@ -110,11 +160,24 @@ export class PedidosController {
     @Req() request: RequestConUsuario,
   ) {
     await this.obtenerPedidoPermitido(id, request.user);
-    return this.pedidosService.cambiarEstado(
+    if (datos.estado === 'CANCELADO' && request.user.rol === 'EMPLEADO') {
+      throw new ForbiddenException('No tienes permiso para cancelar pedidos');
+    }
+    const pedidoActualizado = await this.pedidosService.cambiarEstado(
       id,
       datos.estado as EstadoPedido,
       request.user.id,
     );
+    if (!pedidoActualizado) {
+      throw new NotFoundException('Pedido no encontrado');
+    }
+    if (
+      pedidoActualizado.estado === 'ENTREGADO' ||
+      pedidoActualizado.estado === 'CANCELADO'
+    ) {
+      await this.pedidoReferenciaService.eliminarReferencia(pedidoActualizado);
+    }
+    return pedidoActualizado;
   }
 
   @Delete(':id')
@@ -123,11 +186,14 @@ export class PedidosController {
     @Param('id', ParseIntPipe) id: number,
     @Req() request: RequestConUsuario,
   ) {
-    await this.obtenerPedidoPermitido(id, request.user);
-    return this.pedidosService.eliminar(id);
+    const pedido = await this.obtenerPedidoPermitido(id, request.user);
+    const resultado = await this.pedidosService.eliminar(id);
+    await this.pedidoReferenciaService.eliminarReferencia(pedido);
+    return resultado;
   }
 
   @Patch(':id/precio-especial')
+  @Roles('ADMIN', 'DISENADOR', 'DISEÑADOR')
   async cambiarPrecioEspecial(
     @Param('id', ParseIntPipe) id: number,
     @Body() datos: CambiarPrecioEspecialDto,
@@ -173,5 +239,44 @@ export class PedidosController {
       pedido.servicio === 'TEXTIL' &&
       pedido.ancho === (usuario.area === 'TEXTIL31' ? 31 : 58)
     );
+  }
+
+  private validarImagenReferencia(
+    archivo: ImagenReferenciaSubida,
+  ): asserts archivo is ImagenReferenciaSubida {
+    if (
+      archivo.size > TAMANO_MAXIMO_REFERENCIA ||
+      !TIPOS_IMAGEN_REFERENCIA.has(archivo.mimetype)
+    ) {
+      throw new BadRequestException(
+        'La imagen debe ser JPG, PNG o WebP y no superar 5 MB.',
+      );
+    }
+
+    const bytes = archivo.buffer;
+    const esJpeg =
+      bytes.length >= 3 &&
+      bytes[0] === 0xff &&
+      bytes[1] === 0xd8 &&
+      bytes[2] === 0xff;
+    const esPng =
+      bytes.length >= 8 &&
+      bytes
+        .subarray(0, 8)
+        .equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    const esWebp =
+      bytes.length >= 12 &&
+      bytes.toString('ascii', 0, 4) === 'RIFF' &&
+      bytes.toString('ascii', 8, 12) === 'WEBP';
+    const tipoValido =
+      (archivo.mimetype === 'image/jpeg' && esJpeg) ||
+      (archivo.mimetype === 'image/png' && esPng) ||
+      (archivo.mimetype === 'image/webp' && esWebp);
+
+    if (!tipoValido) {
+      throw new BadRequestException(
+        'El contenido del archivo no coincide con una imagen JPG, PNG o WebP válida.',
+      );
+    }
   }
 }

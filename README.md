@@ -31,6 +31,27 @@
 $ pnpm install
 ```
 
+## Referencias de imagen para pedidos
+
+Las imágenes de referencia se guardan en un bucket privado de Supabase Storage;
+el contenido de la imagen no se guarda en la base de datos de pedidos. Crea un
+bucket llamado `pedido-referencias` (o configura otro nombre) y limita las
+cargas a JPG, PNG y WebP con un máximo de 5 MB.
+
+Configura estas variables únicamente en el backend (por ejemplo, en Render):
+
+```env
+SUPABASE_URL=https://<project-id>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<clave-secreta-del-servidor>
+SUPABASE_REFERENCE_BUCKET=pedido-referencias
+```
+
+La clave de servidor no debe exponerse en el frontend. El backend emite enlaces
+privados de corta duración, aplica los permisos del pedido y elimina las
+referencias al vencer a los cinco días de la creación del pedido. También las
+elimina al entregar, cancelar o borrar el pedido. La limpieza de vencidas se
+ejecuta al iniciar el backend y luego cada hora.
+
 ## Compile and run the project
 
 ```bash

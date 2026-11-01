@@ -102,6 +102,8 @@ export class PagosController {
   }
 
   @Post('pedido/:pedidoId')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'DISENADOR', 'DISEÑADOR')
   async registrarPagoPedido(
     @Param('pedidoId', ParseIntPipe) pedidoId: number,
     @Body() dto: CrearPagoPedidoDto | undefined,
@@ -118,6 +120,8 @@ export class PagosController {
   }
 
   @Delete('pedido/:pedidoId/ultimo')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'DISENADOR', 'DISEÑADOR')
   async revertirUltimoPagoPedido(
     @Param('pedidoId', ParseIntPipe) pedidoId: number,
     @Request() req: RequestConUsuario,
@@ -132,6 +136,8 @@ export class PagosController {
   }
 
   @Post()
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'DISENADOR', 'DISEÑADOR')
   async registrarPago(
     @Body() dto: CrearPagoDto,
     @Request() req: RequestConUsuario,

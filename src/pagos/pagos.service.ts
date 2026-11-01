@@ -615,6 +615,9 @@ export class PagosService {
         id: pedidos.id,
         fecha: pedidos.createdAt,
         estado: pedidos.estado,
+        servicio: pedidos.servicio,
+        ancho: pedidos.ancho,
+        largo: pedidos.largo,
         valorCobrar: pedidos.valorCobrar,
         pagado: sql<number>`
           COALESCE(SUM(${pagosPedidos.monto}), 0)
@@ -625,7 +628,14 @@ export class PagosService {
       .where(
         and(eq(pedidos.clienteId, clienteId), eq(pedidos.estado, 'ENTREGADO')),
       )
-      .groupBy(pedidos.id, pedidos.estado, pedidos.valorCobrar);
+      .groupBy(
+        pedidos.id,
+        pedidos.estado,
+        pedidos.servicio,
+        pedidos.ancho,
+        pedidos.largo,
+        pedidos.valorCobrar,
+      );
 
     const pedidosConDeuda = pedidosCliente
       .map((pedido) => {
@@ -638,6 +648,9 @@ export class PagosService {
         return {
           id: pedido.id,
           fecha: pedido.fecha,
+          servicio: pedido.servicio,
+          ancho: pedido.ancho,
+          largo: pedido.largo,
           total,
           pagado,
           porCobrar,
