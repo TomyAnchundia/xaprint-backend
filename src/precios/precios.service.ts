@@ -11,8 +11,33 @@ export class PreciosService {
     ancho: number,
     largoCm: number,
     clienteId?: number,
+    aplicaPromocion = false,
   ): Promise<number> {
     this.validarLargo(largoCm);
+
+    if (aplicaPromocion) {
+      if (!(await this.tarifasService.promocionActiva(servicio))) {
+        throw new BadRequestException(
+          `La promoción de ${servicio} no está activa`,
+        );
+      }
+
+      const tarifaPromocional =
+        await this.tarifasService.obtenerTarifaAplicable(
+          servicio,
+          ancho,
+          largoCm,
+          'PROMOCIONAL',
+        );
+
+      if (!tarifaPromocional) {
+        throw new BadRequestException(
+          `No existe una tarifa promocional activa para ${servicio} ${ancho} cm y ${largoCm} cm de largo`,
+        );
+      }
+
+      return this.redondear((largoCm / 100) * tarifaPromocional.precio);
+    }
 
     const tarifaCliente =
       clienteId === undefined
@@ -56,12 +81,14 @@ export class PreciosService {
     largoCm: number,
     costoDiseno = 0,
     clienteId?: number,
+    aplicaPromocion = false,
   ) {
     const precioCalculado = await this.calcularPrecio(
       servicio,
       ancho,
       largoCm,
       clienteId,
+      aplicaPromocion,
     );
 
     return this.calcularCotizacionDesdePrecio(
@@ -116,6 +143,10 @@ export class PreciosService {
 
     const precioCalculado = this.redondear((largoCm / 100) * tarifa.precio);
     return this.crearCotizacion(precioCalculado);
+  }
+
+  async listarPromociones() {
+    return this.tarifasService.listarPromociones();
   }
 
   private crearCotizacion(precioCalculado: number, costoDiseno = 0) {

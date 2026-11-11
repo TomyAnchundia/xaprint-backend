@@ -24,6 +24,11 @@ export class PreciosController {
     return this.preciosService.calcularCotizacionTarifa(tarifaId, largoCm);
   }
 
+  @Get('promociones')
+  listarPromociones() {
+    return this.preciosService.listarPromociones();
+  }
+
   @Post('calcular')
   async calcularPrecio(@Body() dto: CalcularPrecioDto) {
     return this.preciosService.calcularCotizacion(
@@ -32,6 +37,7 @@ export class PreciosController {
       dto.largo,
       dto.costoDiseno ?? 0,
       dto.clienteId,
+      dto.aplicaPromocion ?? false,
     );
   }
 }

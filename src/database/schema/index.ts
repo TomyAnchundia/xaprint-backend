@@ -210,6 +210,10 @@ export const pedidos = sqliteTable('pedidos', {
 
   largo: real('largo').notNull(),
 
+  aplicaPromocion: integer('aplica_promocion', { mode: 'boolean' })
+    .notNull()
+    .default(false),
+
   // Precio calculado automáticamente según las tarifas configuradas.
   precioCalculado: real('precio_calculado'),
 
@@ -341,6 +345,8 @@ export const tarifas = sqliteTable('tarifas', {
 
   servicio: text('servicio').notNull(),
 
+  tipo: text('tipo').notNull().default('NORMAL'),
+
   ancho: real('ancho').notNull(),
 
   desde: real('desde').notNull(),
@@ -364,6 +370,14 @@ export const tarifas = sqliteTable('tarifas', {
   updatedAt: integer('updated_at', {
     mode: 'timestamp',
   })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const promocionesServicio = sqliteTable('promociones_servicio', {
+  servicio: text('servicio').primaryKey(),
+  activo: integer('activo', { mode: 'boolean' }).notNull().default(false),
+  updatedAt: integer('updated_at', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
 });

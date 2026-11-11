@@ -6,9 +6,15 @@ import {
 import { and, eq, ne } from 'drizzle-orm';
 
 import { DatabaseService } from '../database/database.service';
-import { clientes, tarifas, tarifasClientes } from '../database/schema';
+import {
+  clientes,
+  promocionesServicio,
+  tarifas,
+  tarifasClientes,
+} from '../database/schema';
 
 export type ServicioTarifa = 'TEXTIL' | 'UV';
+export type TipoTarifa = 'NORMAL' | 'PROMOCIONAL';
 
 @Injectable()
 export class TarifasService {
@@ -16,6 +22,57 @@ export class TarifasService {
 
   async listar() {
     return this.database.db.select().from(tarifas);
+  }
+
+  async listarPromociones() {
+    const activas = await this.database.db.select().from(promocionesServicio);
+    return (['TEXTIL', 'UV'] as const).map((servicio) => ({
+      servicio,
+      activo:
+        activas.find((promocion) => promocion.servicio === servicio)?.activo ??
+        false,
+    }));
+  }
+
+  async cambiarPromocionActiva(servicio: ServicioTarifa, activo: boolean) {
+    this.validarServicio(servicio);
+
+    if (activo) {
+      const tarifasPromocionales = await this.database.db
+        .select()
+        .from(tarifas)
+        .where(
+          and(
+            eq(tarifas.servicio, servicio),
+            eq(tarifas.tipo, 'PROMOCIONAL'),
+            eq(tarifas.activo, true),
+          ),
+        );
+      if (tarifasPromocionales.length === 0) {
+        throw new BadRequestException(
+          `Configura y activa al menos una tarifa promocional para ${servicio} antes de activar la promoción`,
+        );
+      }
+    }
+
+    const [promocion] = await this.database.db
+      .insert(promocionesServicio)
+      .values({ servicio, activo, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: promocionesServicio.servicio,
+        set: { activo, updatedAt: new Date() },
+      })
+      .returning();
+
+    return promocion;
+  }
+
+  async promocionActiva(servicio: ServicioTarifa) {
+    const [promocion] = await this.database.db
+      .select()
+      .from(promocionesServicio)
+      .where(eq(promocionesServicio.servicio, servicio));
+    return promocion?.activo ?? false;
   }
 
   async obtenerPorId(id: number) {
@@ -33,6 +90,7 @@ export class TarifasService {
 
   async crear(data: {
     servicio: ServicioTarifa;
+    tipo?: TipoTarifa;
     ancho: number;
     desde: number;
     hasta?: number | null;
@@ -45,12 +103,14 @@ export class TarifasService {
       data.ancho,
       data.desde,
       data.hasta ?? null,
+      data.tipo ?? 'NORMAL',
     );
 
     const resultado = await this.database.db
       .insert(tarifas)
       .values({
         servicio: data.servicio,
+        tipo: data.tipo ?? 'NORMAL',
         ancho: data.ancho,
         desde: data.desde,
         hasta: data.hasta ?? null,
@@ -65,6 +125,7 @@ export class TarifasService {
     id: number,
     data: {
       servicio: ServicioTarifa;
+      tipo?: TipoTarifa;
       ancho: number;
       desde: number;
       hasta?: number | null;
@@ -80,6 +141,7 @@ export class TarifasService {
       data.ancho,
       data.desde,
       data.hasta ?? null,
+      data.tipo ?? 'NORMAL',
       id,
     );
 
@@ -87,6 +149,7 @@ export class TarifasService {
       .update(tarifas)
       .set({
         servicio: data.servicio,
+        tipo: data.tipo ?? 'NORMAL',
         ancho: data.ancho,
         desde: data.desde,
         hasta: data.hasta ?? null,
@@ -108,6 +171,7 @@ export class TarifasService {
         tarifa.ancho,
         tarifa.desde,
         tarifa.hasta,
+        tarifa.tipo as TipoTarifa,
         id,
       );
     }
@@ -126,13 +190,20 @@ export class TarifasService {
 
   private validarDatos(data: {
     servicio: ServicioTarifa;
+    tipo?: TipoTarifa;
     ancho: number;
     desde: number;
     hasta?: number | null;
     precio: number;
   }) {
-    if (data.servicio !== 'TEXTIL' && data.servicio !== 'UV') {
-      throw new BadRequestException('Servicio no válido');
+    this.validarServicio(data.servicio);
+
+    if (
+      data.tipo !== undefined &&
+      data.tipo !== 'NORMAL' &&
+      data.tipo !== 'PROMOCIONAL'
+    ) {
+      throw new BadRequestException('Tipo de tarifa no válido');
     }
 
     const anchosValidos = data.servicio === 'TEXTIL' ? [31, 58] : [29];
@@ -167,10 +238,12 @@ export class TarifasService {
     ancho: number,
     desde: number,
     hasta: number | null,
+    tipo: TipoTarifa = 'NORMAL',
     excluirId?: number,
   ) {
     const condiciones = [
       eq(tarifas.servicio, servicio),
+      eq(tarifas.tipo, tipo),
       eq(tarifas.ancho, ancho),
       eq(tarifas.activo, true),
     ];
@@ -198,10 +271,20 @@ export class TarifasService {
       );
     }
   }
+
+  private validarServicio(
+    servicio: string,
+  ): asserts servicio is ServicioTarifa {
+    if (servicio !== 'TEXTIL' && servicio !== 'UV') {
+      throw new BadRequestException('Servicio no válido');
+    }
+  }
+
   async obtenerTarifaAplicable(
     servicio: ServicioTarifa,
     ancho: number,
     largoCm: number,
+    tipo: TipoTarifa = 'NORMAL',
   ) {
     const tarifasActivas = await this.database.db
       .select()
@@ -209,6 +292,7 @@ export class TarifasService {
       .where(
         and(
           eq(tarifas.servicio, servicio),
+          eq(tarifas.tipo, tipo),
           eq(tarifas.ancho, ancho),
           eq(tarifas.activo, true),
         ),
@@ -364,7 +448,8 @@ export class TarifasService {
     const tarifa =
       tarifasActivas.find(
         (item) =>
-          largoCm >= item.desde && (item.hasta === null || largoCm < item.hasta),
+          largoCm >= item.desde &&
+          (item.hasta === null || largoCm < item.hasta),
       ) ?? null;
     return { esEspecial: true, tarifa };
   }

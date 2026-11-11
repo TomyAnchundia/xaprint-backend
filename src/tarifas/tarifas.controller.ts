@@ -13,7 +13,8 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { TarifasService, ServicioTarifa } from './tarifas.service';
+import { TarifasService } from './tarifas.service';
+import type { ServicioTarifa, TipoTarifa } from './tarifas.service';
 import { ActivarTarifaEspecialDto } from './dto/activar-tarifa-especial.dto';
 import { GuardarTarifaClienteDto } from './dto/guardar-tarifa-cliente.dto';
 
@@ -26,6 +27,19 @@ export class TarifasController {
   @Get()
   listar() {
     return this.tarifasService.listar();
+  }
+
+  @Get('promociones')
+  listarPromociones() {
+    return this.tarifasService.listarPromociones();
+  }
+
+  @Patch('promociones/:servicio/activo')
+  cambiarPromocionActiva(
+    @Param('servicio') servicio: ServicioTarifa,
+    @Body() body: { activo: boolean },
+  ) {
+    return this.tarifasService.cambiarPromocionActiva(servicio, body.activo);
   }
 
   @Get('clientes/:clienteId')
@@ -58,11 +72,7 @@ export class TarifasController {
     @Param('tarifaId', ParseIntPipe) tarifaId: number,
     @Body() body: GuardarTarifaClienteDto,
   ) {
-    return this.tarifasService.actualizarParaCliente(
-      clienteId,
-      tarifaId,
-      body,
-    );
+    return this.tarifasService.actualizarParaCliente(clienteId, tarifaId, body);
   }
 
   @Delete('clientes/:clienteId/:tarifaId')
@@ -83,6 +93,7 @@ export class TarifasController {
     @Body()
     body: {
       servicio: ServicioTarifa;
+      tipo?: TipoTarifa;
       ancho: number;
       desde: number;
       hasta?: number | null;
@@ -98,6 +109,7 @@ export class TarifasController {
     @Body()
     body: {
       servicio: ServicioTarifa;
+      tipo?: TipoTarifa;
       ancho: number;
       desde: number;
       hasta?: number | null;

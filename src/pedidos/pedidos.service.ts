@@ -35,6 +35,7 @@ type PedidoConsulta = {
   estadoPago: string;
   prioridad: number;
   servicio: string;
+  aplicaPromocion: boolean;
   ancho: number;
   largo: number | null;
   precioCalculado: number | null;
@@ -82,6 +83,7 @@ export class PedidosService {
         estadoPago: pedidos.estadoPago,
         prioridad: pedidos.prioridad,
         servicio: pedidos.servicio,
+        aplicaPromocion: pedidos.aplicaPromocion,
         ancho: pedidos.ancho,
         largo: pedidos.largo,
         precioCalculado: pedidos.precioCalculado,
@@ -133,6 +135,7 @@ export class PedidosService {
         estadoPago: pedidos.estadoPago,
         prioridad: pedidos.prioridad,
         servicio: pedidos.servicio,
+        aplicaPromocion: pedidos.aplicaPromocion,
         ancho: pedidos.ancho,
         largo: pedidos.largo,
         precioCalculado: pedidos.precioCalculado,
@@ -169,6 +172,7 @@ export class PedidosService {
       datos.ancho,
       datos.largo,
       datos.clienteId,
+      datos.aplicaPromocion ?? false,
     );
     const costoDiseno = datos.costoDiseno ?? 0;
     const valoresPrecio = this.calcularValoresPrecio(
@@ -186,6 +190,7 @@ export class PedidosService {
         estado: 'REVISION',
         prioridad: datos.prioridad ?? 0,
         servicio: datos.servicio,
+        aplicaPromocion: datos.aplicaPromocion ?? false,
         ancho: datos.ancho,
         largo: datos.largo,
         precioCalculado,
@@ -214,6 +219,8 @@ export class PedidosService {
     const anchoNuevo = datos.ancho ?? pedidoActual.ancho;
     const largoNuevo =
       datos.largo !== undefined ? datos.largo : pedidoActual.largo;
+    const aplicaPromocionNuevo =
+      datos.aplicaPromocion ?? pedidoActual.aplicaPromocion;
     const costoDisenoNuevo =
       datos.costoDiseno !== undefined
         ? datos.costoDiseno
@@ -223,9 +230,10 @@ export class PedidosService {
       datos.clienteId !== pedidoActual.cliente?.id;
     const debeRecalcularPrecio =
       cambioCliente ||
-      datos.servicio !== undefined ||
-      datos.ancho !== undefined ||
-      datos.largo !== undefined;
+      servicioNuevo !== pedidoActual.servicio ||
+      anchoNuevo !== pedidoActual.ancho ||
+      largoNuevo !== pedidoActual.largo ||
+      aplicaPromocionNuevo !== pedidoActual.aplicaPromocion;
     let precioCalculado = pedidoActual.precioCalculado;
     let aporteDesarrollador = pedidoActual.aporteDesarrollador ?? 0;
     let valorCobrar = pedidoActual.valorCobrar;
@@ -238,6 +246,7 @@ export class PedidosService {
         anchoNuevo,
         largoNuevo,
         datos.clienteId ?? pedidoActual.cliente?.id,
+        aplicaPromocionNuevo,
       );
       const valoresPrecio = this.calcularValoresPrecio(
         servicioNuevo,
@@ -272,6 +281,9 @@ export class PedidosService {
         ...(datos.servicio !== undefined && { servicio: datos.servicio }),
         ...(datos.ancho !== undefined && { ancho: datos.ancho }),
         ...(datos.largo !== undefined && { largo: datos.largo }),
+        ...(datos.aplicaPromocion !== undefined && {
+          aplicaPromocion: aplicaPromocionNuevo,
+        }),
         ...(debeRecalcularPrecio && {
           precioCalculado,
           aporteDesarrollador,
@@ -479,6 +491,7 @@ export class PedidosService {
       metodosPago,
       prioridad: pedido.prioridad,
       servicio: pedido.servicio,
+      aplicaPromocion: pedido.aplicaPromocion,
       ancho: pedido.ancho,
       largo: pedido.largo,
       precioCalculado: pedido.precioCalculado,
@@ -523,6 +536,7 @@ export class PedidosService {
     ancho: number,
     largoCm: number | null | undefined,
     clienteId?: number,
+    aplicaPromocion = false,
   ): Promise<number | null> {
     if (largoCm === null || largoCm === undefined) {
       return null;
@@ -532,6 +546,7 @@ export class PedidosService {
       ancho,
       largoCm,
       clienteId,
+      aplicaPromocion,
     );
   }
   private validarEstado(estado: string): void {

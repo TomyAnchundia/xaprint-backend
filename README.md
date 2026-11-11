@@ -31,6 +31,31 @@
 $ pnpm install
 ```
 
+## Desarrollo con una base de datos local
+
+El backend puede usar `backend/local.db` en lugar de conectarse a Turso. Esta
+base comienza vacía y no copia datos de producción.
+
+```bash
+# Crear o actualizar el esquema en la base local
+$ pnpm run db:local:push
+
+# Iniciar el backend apuntando exclusivamente a la base local
+$ pnpm run start:local
+```
+
+Para conectar el frontend al backend local, inicia Astro con esta variable:
+
+```bash
+$ cd ../frontend
+$ PUBLIC_API_URL=http://localhost:3000 npm run dev
+```
+
+`DATABASE_MODE=local` no utiliza las variables de conexión de Turso aunque estén
+definidas en `.env`. Sin `DATABASE_MODE=local`, el backend conserva la
+configuración de Turso existente. No uses `db:seed` para preparar la base local;
+ese script está destinado a Turso.
+
 ## Referencias de imagen para pedidos
 
 Las imágenes de referencia se guardan en un bucket privado de Supabase Storage;

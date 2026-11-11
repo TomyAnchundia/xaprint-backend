@@ -15,6 +15,10 @@ export class ActualizarPedidoDto {
   clienteId?: number;
 
   @IsOptional()
+  @IsBoolean()
+  aplicaPromocion?: boolean;
+
+  @IsOptional()
   @IsString()
   @IsIn(['TEXTIL', 'UV'])
   servicio?: string;

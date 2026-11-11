@@ -14,6 +14,10 @@ export class CrearPedidoDto {
   @Min(1)
   clienteId!: number;
 
+  @IsOptional()
+  @IsBoolean()
+  aplicaPromocion?: boolean;
+
   @IsString()
   @IsNotEmpty()
   @IsIn(['TEXTIL', 'UV'])

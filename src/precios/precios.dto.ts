@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsOptional,
   IsPositive,
+  IsBoolean,
   Min,
 } from 'class-validator';
 
@@ -28,4 +29,8 @@ export class CalcularPrecioDto {
   @IsInt()
   @IsPositive()
   clienteId?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  aplicaPromocion?: boolean;
 }

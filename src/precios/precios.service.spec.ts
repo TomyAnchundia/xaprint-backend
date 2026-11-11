@@ -9,6 +9,7 @@ describe('PreciosService', () => {
     obtenerPorId: jest.fn(),
     obtenerTarifaAplicable: jest.fn(),
     obtenerTarifaClienteAplicable: jest.fn(),
+    promocionActiva: jest.fn(),
   };
   const service = new PreciosService(
     tarifasService as unknown as TarifasService,
@@ -18,6 +19,7 @@ describe('PreciosService', () => {
     tarifasService.obtenerPorId.mockReset();
     tarifasService.obtenerTarifaAplicable.mockReset();
     tarifasService.obtenerTarifaClienteAplicable.mockReset();
+    tarifasService.promocionActiva.mockReset();
   });
 
   it('cotiza el redondeo textil para una tarifa concreta', async () => {
@@ -140,6 +142,34 @@ describe('PreciosService', () => {
     await expect(
       service.calcularCotizacion('TEXTIL', 31, 100, 0, 42),
     ).rejects.toThrow('Falta configurar una tarifa exclusiva');
+    expect(tarifasService.obtenerTarifaAplicable).not.toHaveBeenCalled();
+  });
+
+  it('prioriza la tarifa promocional sobre la tarifa exclusiva del cliente', async () => {
+    tarifasService.promocionActiva.mockResolvedValue(true);
+    tarifasService.obtenerTarifaAplicable.mockResolvedValue({ precio: 4 });
+
+    await expect(
+      service.calcularCotizacion('TEXTIL', 31, 100, 0, 42, true),
+    ).resolves.toMatchObject({
+      precioCalculado: 4,
+      valorCobrar: 4,
+    });
+    expect(tarifasService.obtenerTarifaAplicable).toHaveBeenCalledWith(
+      'TEXTIL',
+      31,
+      100,
+      'PROMOCIONAL',
+    );
+    expect(tarifasService.obtenerTarifaClienteAplicable).not.toHaveBeenCalled();
+  });
+
+  it('rechaza aplicar una promoción inactiva', async () => {
+    tarifasService.promocionActiva.mockResolvedValue(false);
+
+    await expect(
+      service.calcularCotizacion('TEXTIL', 31, 100, 0, undefined, true),
+    ).rejects.toThrow('La promoción de TEXTIL no está activa');
     expect(tarifasService.obtenerTarifaAplicable).not.toHaveBeenCalled();
   });
 });
