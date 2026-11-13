@@ -27,6 +27,8 @@ import { ActualizarPedidoDto } from './dto/actualizar-pedido.dto';
 import { CambiarEstadoPedidoDto } from './dto/cambiar-estado-pedido.dto';
 import { CambiarPrecioEspecialDto } from './dto/cambiar-precio-especial.dto';
 import { CrearPedidoDto } from './dto/crear-pedido.dto';
+import { CrearNotaVentaDto } from './dto/crear-nota-venta.dto';
+import { NotasVentaService } from './notas-venta.service';
 import { PedidoReferenciaService } from './pedido-referencia.service';
 import type { ImagenReferenciaSubida } from './pedido-referencia.service';
 import { EstadoPedido, PedidosService } from './pedidos.service';
@@ -53,6 +55,7 @@ export class PedidosController {
   constructor(
     private readonly pedidosService: PedidosService,
     private readonly pedidoReferenciaService: PedidoReferenciaService,
+    private readonly notasVentaService: NotasVentaService,
   ) {}
 
   @Get()
@@ -65,6 +68,18 @@ export class PedidosController {
   async obtenerHistorialGeneral(@Req() request: RequestConUsuario) {
     const historial = await this.pedidosService.obtenerHistorialGeneral();
     return historial.filter((item) => this.puedeAcceder(item, request.user));
+  }
+
+  @Post('nota-venta')
+  async emitirNotaVenta(
+    @Body() datos: CrearNotaVentaDto,
+    @Req() request: RequestConUsuario,
+  ) {
+    for (const pedidoId of datos.pedidoIds) {
+      await this.obtenerPedidoPermitido(pedidoId, request.user);
+    }
+
+    return this.notasVentaService.emitir(datos.pedidoIds, datos.idempotencyKey);
   }
 
   @Get(':id')

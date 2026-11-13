@@ -56,6 +56,16 @@ definidas en `.env`. Sin `DATABASE_MODE=local`, el backend conserva la
 configuración de Turso existente. No uses `db:seed` para preparar la base local;
 ese script está destinado a Turso.
 
+## Notas de venta
+
+Las notas de venta internas usan un consecutivo global almacenado en la base de
+datos. Antes de desplegar esta función, aplica
+`migrations/20261113042826_true_sentry/migration.sql` a la base de Turso. En la
+base local, ejecuta `pnpm run db:local:push` para sincronizar el esquema.
+
+El PDF es un comprobante interno no tributario y no reemplaza una factura
+autorizada por el SRI.
+
 ## Referencias de imagen para pedidos
 
 Las imágenes de referencia se guardan en un bucket privado de Supabase Storage;

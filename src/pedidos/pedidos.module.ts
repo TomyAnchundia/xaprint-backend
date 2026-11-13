@@ -4,6 +4,7 @@ import { PedidosController } from './pedidos.controller';
 import { PedidosGateway } from './pedidos.gateway';
 import { PedidoReferenciaService } from './pedido-referencia.service';
 import { PedidosService } from './pedidos.service';
+import { NotasVentaService } from './notas-venta.service';
 
 import { PreciosModule } from '../precios/precios.module';
 import { AuthModule } from '../auth/auth.module';
@@ -13,7 +14,12 @@ import { AuthModule } from '../auth/auth.module';
 
   controllers: [PedidosController],
 
-  providers: [PedidosService, PedidosGateway, PedidoReferenciaService],
+  providers: [
+    PedidosService,
+    PedidosGateway,
+    PedidoReferenciaService,
+    NotasVentaService,
+  ],
   exports: [PedidosGateway, PedidosService],
 })
 export class PedidosModule {}

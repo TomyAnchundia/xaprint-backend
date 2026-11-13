@@ -326,6 +326,20 @@ export const pagosPedidos = sqliteTable('pagos_pedidos', {
   monto: real('monto').notNull(),
 });
 
+export const notasVenta = sqliteTable('notas_venta', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  claveSolicitud: text('clave_solicitud').notNull().unique(),
+  clienteId: integer('cliente_id')
+    .notNull()
+    .references(() => clientes.id),
+  clienteNombre: text('cliente_nombre').notNull(),
+  pedidosJson: text('pedidos_json').notNull(),
+  total: real('total').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 export const pagosDesarrollador = sqliteTable('pagos_desarrollador', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   periodo: text('periodo').notNull(),

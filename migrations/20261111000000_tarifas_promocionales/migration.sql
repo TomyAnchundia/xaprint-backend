@@ -1,8 +1,10 @@
 ALTER TABLE `tarifas`
 ADD `tipo` text DEFAULT 'NORMAL' NOT NULL;
+--> statement-breakpoint
 
 ALTER TABLE `pedidos`
 ADD `aplica_promocion` integer DEFAULT false NOT NULL;
+--> statement-breakpoint
 
 CREATE TABLE `promociones_servicio` (
   `servicio` text PRIMARY KEY NOT NULL,
