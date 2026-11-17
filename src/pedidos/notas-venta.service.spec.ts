@@ -29,6 +29,8 @@ describe('NotasVentaService', () => {
       `CREATE TABLE pedidos (
         id integer PRIMARY KEY AUTOINCREMENT,
         cliente_id integer NOT NULL,
+        estado text NOT NULL DEFAULT 'REVISION',
+        estado_pago text NOT NULL DEFAULT 'NO_PAGADO',
         servicio text NOT NULL,
         ancho real NOT NULL,
         largo real,
@@ -53,12 +55,17 @@ describe('NotasVentaService', () => {
     await client.executeMultiple(`
       INSERT INTO clientes (nombre) VALUES ('Tomy Anchundia'), ('Otro cliente');
       INSERT INTO pedidos
-        (cliente_id, servicio, ancho, largo, valor_cobrar, precio_especial, precio_calculado)
+        (cliente_id, estado, estado_pago, servicio, ancho, largo, valor_cobrar, precio_especial, precio_calculado)
       VALUES
-        (1, 'TEXTIL', 58, 100, 10.25, NULL, 10.25),
-        (1, 'UV', 0, 0, 5.5, NULL, 5.5),
-        (2, 'TEXTIL', 31, 80, 8, NULL, 8),
-        (1, 'UV', 0, 0, NULL, NULL, NULL);
+        (1, 'REVISION', 'NO_PAGADO', 'TEXTIL', 58, 100, 10.25, NULL, 10.25),
+        (1, 'IMPRIMIENDO', 'NO_PAGADO', 'UV', 0, 0, 5.5, NULL, 5.5),
+        (2, 'ENTREGADO', 'NO_PAGADO', 'TEXTIL', 31, 80, 8, NULL, 8),
+        (1, 'REVISION', 'NO_PAGADO', 'UV', 0, 0, NULL, NULL, NULL),
+        (1, 'LISTO', 'NO_PAGADO', 'TEXTIL', 31, 30, 7, NULL, 7),
+        (1, 'ENTREGADO', 'NO_PAGADO', 'UV', 0, 0, 6, NULL, 6),
+        (1, 'LISTO', 'PARCIALMENTE_PAGADO', 'UV', 0, 0, 4, NULL, 4),
+        (1, 'CANCELADO', 'NO_PAGADO', 'TEXTIL', 31, 20, 3, NULL, 3),
+        (1, 'REVISION', 'PAGADO', 'TEXTIL', 31, 20, 3, NULL, 3);
     `);
   });
 
@@ -108,5 +115,24 @@ describe('NotasVentaService', () => {
       'SELECT COUNT(*) AS cantidad FROM notas_venta',
     );
     expect(Number(notas.rows[0]?.cantidad)).toBe(2);
+  });
+
+  it('only emits unpaid notes for the allowed production states', async () => {
+    await expect(
+      service.emitirNoPagados([7], '35fef671-8216-4bdb-93da-1d3e2bab0488'),
+    ).rejects.toThrow('Solo se pueden incluir pedidos no pagados');
+    await expect(
+      service.emitirNoPagados([8], '35fef671-8216-4bdb-93da-1d3e2bab0489'),
+    ).rejects.toThrow('Solo se pueden incluir pedidos no pagados');
+    await expect(
+      service.emitirNoPagados([9], '35fef671-8216-4bdb-93da-1d3e2bab0490'),
+    ).rejects.toThrow('Solo se pueden incluir pedidos no pagados');
+
+    const nota = await service.emitirNoPagados(
+      [1, 2, 5, 6],
+      '35fef671-8216-4bdb-93da-1d3e2bab0491',
+    );
+
+    expect(nota.pedidos.map((pedido) => pedido.pedidoId)).toEqual([1, 2, 5, 6]);
   });
 });

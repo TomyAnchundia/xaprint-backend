@@ -8,6 +8,13 @@ import { eq, inArray } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import { clientes, notasVenta, pedidos } from '../database/schema';
 
+const ESTADOS_PEDIDO_NOTA_NO_PAGADA = new Set([
+  'REVISION',
+  'IMPRIMIENDO',
+  'LISTO',
+  'ENTREGADO',
+]);
+
 export interface NotaVentaDetalle {
   pedidoId: number;
   servicio: 'TEXTIL' | 'UV';
@@ -37,6 +44,21 @@ export class NotasVentaService {
     pedidoIds: number[],
     idempotencyKey: string,
   ): Promise<NotaVentaRespuesta> {
+    return this.encolarEmision(pedidoIds, idempotencyKey, false);
+  }
+
+  async emitirNoPagados(
+    pedidoIds: number[],
+    idempotencyKey: string,
+  ): Promise<NotaVentaRespuesta> {
+    return this.encolarEmision(pedidoIds, idempotencyKey, true);
+  }
+
+  private encolarEmision(
+    pedidoIds: number[],
+    idempotencyKey: string,
+    validarPedidosNoPagados: boolean,
+  ): Promise<NotaVentaRespuesta> {
     if (
       pedidoIds.length === 0 ||
       new Set(pedidoIds).size !== pedidoIds.length
@@ -45,7 +67,11 @@ export class NotasVentaService {
     }
 
     const emision = this.colaEmisiones.then(() =>
-      this.emitirEnTransaccion(pedidoIds, idempotencyKey),
+      this.emitirEnTransaccion(
+        pedidoIds,
+        idempotencyKey,
+        validarPedidosNoPagados,
+      ),
     );
     this.colaEmisiones = emision.then(
       () => undefined,
@@ -57,6 +83,7 @@ export class NotasVentaService {
   private async emitirEnTransaccion(
     pedidoIds: number[],
     idempotencyKey: string,
+    validarPedidosNoPagados: boolean,
   ): Promise<NotaVentaRespuesta> {
     return this.database.db.transaction(async (tx) => {
       const notaExistente = await tx
@@ -73,6 +100,8 @@ export class NotasVentaService {
           pedidoId: pedidos.id,
           clienteId: clientes.id,
           clienteNombre: clientes.nombre,
+          estado: pedidos.estado,
+          estadoPago: pedidos.estadoPago,
           servicio: pedidos.servicio,
           ancho: pedidos.ancho,
           largo: pedidos.largo,
@@ -115,6 +144,19 @@ export class NotasVentaService {
       ) {
         throw new BadRequestException(
           'La nota de venta solo puede incluir pedidos de un mismo cliente.',
+        );
+      }
+
+      if (
+        validarPedidosNoPagados &&
+        ordenados.some(
+          (registro) =>
+            registro.estadoPago !== 'NO_PAGADO' ||
+            !ESTADOS_PEDIDO_NOTA_NO_PAGADA.has(registro.estado),
+        )
+      ) {
+        throw new BadRequestException(
+          'Solo se pueden incluir pedidos no pagados en revisión, imprimiendo, listos o entregados.',
         );
       }
 

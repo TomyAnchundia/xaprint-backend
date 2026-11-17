@@ -82,6 +82,21 @@ export class PedidosController {
     return this.notasVentaService.emitir(datos.pedidoIds, datos.idempotencyKey);
   }
 
+  @Post('nota-venta-no-pagados')
+  async emitirNotaVentaNoPagados(
+    @Body() datos: CrearNotaVentaDto,
+    @Req() request: RequestConUsuario,
+  ) {
+    for (const pedidoId of datos.pedidoIds) {
+      await this.obtenerPedidoPermitido(pedidoId, request.user);
+    }
+
+    return this.notasVentaService.emitirNoPagados(
+      datos.pedidoIds,
+      datos.idempotencyKey,
+    );
+  }
+
   @Get(':id')
   async obtenerPorId(
     @Param('id', ParseIntPipe) id: number,
