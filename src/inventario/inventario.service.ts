@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  InternalServerErrorException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -12,6 +13,7 @@ import {
   categoriasInventario,
   clientes,
   coloresInventario,
+  cotizacionesInventario,
   itemsVentaInventario,
   movimientosInventario,
   pagos,
@@ -31,6 +33,7 @@ import { CrearProductoDto } from './dto/crear-producto.dto';
 import { CrearTallaDto } from './dto/crear-talla.dto';
 import { CrearUsuarioInventarioDto } from './dto/crear-usuario-inventario.dto';
 import { CrearVentaDto } from './dto/crear-venta.dto';
+import { CrearCotizacionDto } from './dto/crear-cotizacion.dto';
 import { CrearClienteDto } from '../clientes/dto/crear-cliente.dto';
 import { ActualizarClienteDto } from '../clientes/dto/actualizar-cliente.dto';
 import { RegistrarMovimientoDto } from './dto/registrar-movimiento.dto';
@@ -44,6 +47,22 @@ type UsuarioInventarioActual = {
 type ProductoInventario = typeof productosInventario.$inferSelect;
 type VarianteProductoInventario =
   typeof variantesProductoInventario.$inferSelect;
+export interface ItemCotizacionInventario {
+  productId: number;
+  variantId: number;
+  name: string;
+  sku: string;
+  size: string;
+  variantSku: string;
+  presentation: 'UNIDAD' | 'CAJA';
+  unitsPerPresentation: number;
+  quantity: number;
+  price: number;
+  discountPercentage: number;
+  discountAmount: number;
+  total: number;
+}
+
 type InventarioTransaction = Parameters<
   Parameters<DatabaseService['db']['transaction']>[0]
 >[0];
@@ -471,9 +490,14 @@ export class InventarioService {
       .from(movimientosInventario)
       .where(eq(movimientosInventario.usuarioId, id))
       .limit(1);
-    if (venta || movimiento) {
+    const [cotizacion] = await this.database.db
+      .select({ id: cotizacionesInventario.id })
+      .from(cotizacionesInventario)
+      .where(eq(cotizacionesInventario.usuarioId, id))
+      .limit(1);
+    if (venta || movimiento || cotizacion) {
       throw new ConflictException(
-        'No se puede eliminar un usuario con ventas o movimientos registrados',
+        'No se puede eliminar un usuario con ventas, movimientos o cotizaciones registradas',
       );
     }
 
@@ -1581,7 +1605,248 @@ export class InventarioService {
     });
   }
 
+  async crearCotizacion(
+    datos: CrearCotizacionDto,
+    usuario: UsuarioInventarioActual,
+  ) {
+    const contactoNombre = datos.contactoNombre.trim();
+    const contactoTelefono = datos.contactoTelefono.trim();
+    if (!contactoNombre || !contactoTelefono) {
+      throw new BadRequestException(
+        'El nombre y teléfono del contacto son obligatorios',
+      );
+    }
+
+    return this.database.db.transaction(async (tx) => {
+      let clienteId: number | null = datos.clienteId ?? null;
+      let nombre = contactoNombre;
+      let telefono = contactoTelefono;
+      if (clienteId !== null) {
+        const [cliente] = await tx
+          .select()
+          .from(clientes)
+          .where(eq(clientes.id, clienteId))
+          .limit(1);
+        if (!cliente) throw new NotFoundException('Cliente no encontrado');
+        nombre = cliente.nombre;
+        telefono = cliente.telefono;
+      }
+
+      const items: ItemCotizacionInventario[] = [];
+      for (const item of datos.items) {
+        const varianteId = await this.resolverVarianteVenta(tx, item);
+        const [detalle] = await tx
+          .select({
+            producto: productosInventario,
+            variante: variantesProductoInventario,
+            tallaNombre: tallasInventario.nombre,
+            colorNombre: coloresInventario.nombre,
+          })
+          .from(variantesProductoInventario)
+          .innerJoin(
+            productosInventario,
+            eq(variantesProductoInventario.productoId, productosInventario.id),
+          )
+          .innerJoin(
+            tallasInventario,
+            eq(variantesProductoInventario.tallaId, tallasInventario.id),
+          )
+          .leftJoin(
+            coloresInventario,
+            eq(variantesProductoInventario.colorId, coloresInventario.id),
+          )
+          .where(
+            and(
+              eq(variantesProductoInventario.id, varianteId),
+              eq(productosInventario.activo, true),
+            ),
+          )
+          .limit(1);
+        if (!detalle) {
+          throw new NotFoundException(`Variante ${varianteId} no encontrada`);
+        }
+
+        const presentacion = item.presentacion ?? 'UNIDAD';
+        const unidadesPorPresentacion =
+          presentacion === 'CAJA' ? detalle.producto.unidadesPorCaja : 1;
+        const precio =
+          presentacion === 'CAJA'
+            ? detalle.producto.precioCaja
+            : detalle.variante.precio;
+        if (
+          presentacion === 'CAJA' &&
+          (unidadesPorPresentacion === null || precio === null)
+        ) {
+          throw new BadRequestException(
+            `${detalle.producto.nombre} no tiene una caja configurada`,
+          );
+        }
+
+        const precioUnitario = precio ?? detalle.producto.precio;
+        const descuentoPorcentaje = item.descuentoPorcentaje ?? 0;
+        const subtotal = precioUnitario * item.cantidad;
+        const descuentoMonto = Math.round(subtotal * descuentoPorcentaje) / 100;
+        items.push({
+          productId: detalle.producto.id,
+          variantId: detalle.variante.id,
+          name: detalle.producto.nombre,
+          sku: detalle.producto.sku,
+          size: this.etiquetaVariante(detalle.tallaNombre, detalle.colorNombre),
+          variantSku: detalle.variante.sku,
+          presentation: presentacion,
+          unitsPerPresentation: unidadesPorPresentacion ?? 1,
+          quantity: item.cantidad,
+          price: precioUnitario,
+          discountPercentage: descuentoPorcentaje,
+          discountAmount: descuentoMonto,
+          total: Math.round(subtotal * (100 - descuentoPorcentaje)) / 100,
+        });
+      }
+
+      const subtotal =
+        Math.round(
+          items.reduce((sum, item) => sum + item.price * item.quantity, 0) *
+            100,
+        ) / 100;
+      const subtotalConDescuentos =
+        Math.round(items.reduce((sum, item) => sum + item.total, 0) * 100) /
+        100;
+      const descuentoPorcentaje = datos.descuentoPorcentaje ?? 0;
+      const descuentoMonto =
+        Math.round(subtotalConDescuentos * descuentoPorcentaje) / 100;
+      const total =
+        Math.round((subtotalConDescuentos - descuentoMonto) * 100) / 100;
+
+      const [cotizacion] = await tx
+        .insert(cotizacionesInventario)
+        .values({
+          usuarioId: usuario.id,
+          clienteId,
+          contactoNombre: nombre,
+          contactoTelefono: telefono,
+          itemsJson: JSON.stringify(items),
+          subtotal,
+          descuentoPorcentaje,
+          descuentoMonto,
+          total,
+        })
+        .returning();
+      return this.serializarCotizacion(cotizacion);
+    });
+  }
+
+  async obtenerCotizaciones() {
+    const cotizaciones = await this.database.db
+      .select()
+      .from(cotizacionesInventario)
+      .orderBy(
+        desc(cotizacionesInventario.createdAt),
+        desc(cotizacionesInventario.id),
+      );
+    return cotizaciones.map((cotizacion) =>
+      this.serializarCotizacion(cotizacion),
+    );
+  }
+
+  async cancelarCotizacion(id: number) {
+    const [cotizacion] = await this.database.db
+      .select()
+      .from(cotizacionesInventario)
+      .where(eq(cotizacionesInventario.id, id))
+      .limit(1);
+    if (!cotizacion) throw new NotFoundException('Cotización no encontrada');
+    if (cotizacion.estado !== 'PENDIENTE') {
+      throw new ConflictException(
+        'Solo se pueden cancelar cotizaciones pendientes',
+      );
+    }
+    const [actualizada] = await this.database.db
+      .update(cotizacionesInventario)
+      .set({ estado: 'CANCELADA', updatedAt: new Date() })
+      .where(
+        and(
+          eq(cotizacionesInventario.id, id),
+          eq(cotizacionesInventario.estado, 'PENDIENTE'),
+        ),
+      )
+      .returning();
+    if (!actualizada) {
+      throw new ConflictException(
+        'La cotización dejó de estar pendiente y no se pudo cancelar',
+      );
+    }
+    return this.serializarCotizacion(actualizada);
+  }
+
+  async reactivarCotizacion(id: number) {
+    const [cotizacion] = await this.database.db
+      .select()
+      .from(cotizacionesInventario)
+      .where(eq(cotizacionesInventario.id, id))
+      .limit(1);
+    if (!cotizacion) throw new NotFoundException('Cotización no encontrada');
+    if (cotizacion.estado !== 'CANCELADA') {
+      throw new ConflictException(
+        'Solo se pueden reactivar cotizaciones canceladas',
+      );
+    }
+    const [actualizada] = await this.database.db
+      .update(cotizacionesInventario)
+      .set({ estado: 'PENDIENTE', updatedAt: new Date() })
+      .where(
+        and(
+          eq(cotizacionesInventario.id, id),
+          eq(cotizacionesInventario.estado, 'CANCELADA'),
+        ),
+      )
+      .returning();
+    if (!actualizada) {
+      throw new ConflictException(
+        'La cotización dejó de estar cancelada y no se pudo reactivar',
+      );
+    }
+    return this.serializarCotizacion(actualizada);
+  }
+
+  async eliminarCotizacion(id: number) {
+    const [cotizacion] = await this.database.db
+      .select({
+        id: cotizacionesInventario.id,
+        estado: cotizacionesInventario.estado,
+      })
+      .from(cotizacionesInventario)
+      .where(eq(cotizacionesInventario.id, id))
+      .limit(1);
+    if (!cotizacion) throw new NotFoundException('Cotización no encontrada');
+    if (cotizacion.estado !== 'CANCELADA') {
+      throw new ConflictException(
+        'Solo se pueden eliminar cotizaciones canceladas',
+      );
+    }
+
+    const [eliminada] = await this.database.db
+      .delete(cotizacionesInventario)
+      .where(
+        and(
+          eq(cotizacionesInventario.id, id),
+          eq(cotizacionesInventario.estado, 'CANCELADA'),
+        ),
+      )
+      .returning({ id: cotizacionesInventario.id });
+    if (!eliminada) {
+      throw new ConflictException(
+        'La cotización dejó de estar cancelada y no se pudo eliminar',
+      );
+    }
+    return { id: eliminada.id, eliminado: true };
+  }
+
   async crearVenta(datos: CrearVentaDto, usuario: UsuarioInventarioActual) {
+    if (Boolean(datos.cotizacionId) !== (datos.totalConfirmado !== undefined)) {
+      throw new BadRequestException(
+        'La cotización y el total confirmado deben enviarse juntos',
+      );
+    }
     return this.database.db.transaction(async (tx) => {
       const [cliente] = await tx
         .select()
@@ -1709,6 +1974,14 @@ export class InventarioService {
       const total =
         Math.round((subtotalConDescuentosProducto - descuentoMonto) * 100) /
         100;
+      if (
+        datos.totalConfirmado !== undefined &&
+        Math.round(datos.totalConfirmado * 100) !== Math.round(total * 100)
+      ) {
+        throw new ConflictException(
+          'Los precios cambiaron. Revisa y confirma el total actualizado antes de completar la venta.',
+        );
+      }
       const abonoInicial = Math.round((datos.abonoInicial ?? 0) * 100) / 100;
       if (datos.metodoPago === 'Crédito') {
         if (abonoInicial > total) {
@@ -1799,6 +2072,29 @@ export class InventarioService {
           monto: abonoInicial,
           metodoPago: datos.metodoAbonoInicial!,
         });
+      }
+
+      if (datos.cotizacionId) {
+        const [cotizacionConvertida] = await tx
+          .update(cotizacionesInventario)
+          .set({
+            estado: 'CONVERTIDA',
+            clienteId: cliente.id,
+            ventaId: venta.id,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(cotizacionesInventario.id, datos.cotizacionId),
+              eq(cotizacionesInventario.estado, 'PENDIENTE'),
+            ),
+          )
+          .returning({ id: cotizacionesInventario.id });
+        if (!cotizacionConvertida) {
+          throw new ConflictException(
+            'La cotización ya no está pendiente y no se puede convertir',
+          );
+        }
       }
 
       return {
@@ -2276,6 +2572,14 @@ export class InventarioService {
       await tx
         .delete(itemsVentaInventario)
         .where(eq(itemsVentaInventario.ventaId, id));
+      await tx
+        .update(cotizacionesInventario)
+        .set({
+          estado: 'PENDIENTE',
+          ventaId: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(cotizacionesInventario.ventaId, id));
       await tx.delete(ventasInventario).where(eq(ventasInventario.id, id));
 
       return {
@@ -2786,6 +3090,56 @@ export class InventarioService {
         updatedAt: new Date(),
       })
       .where(eq(productosInventario.id, productoId));
+  }
+
+  private serializarCotizacion(
+    cotizacion: typeof cotizacionesInventario.$inferSelect,
+  ) {
+    const { itemsJson, ...datos } = cotizacion;
+    let detalle: unknown;
+    try {
+      detalle = JSON.parse(itemsJson);
+    } catch {
+      throw new InternalServerErrorException(
+        `El detalle de la cotización ${cotizacion.id} no es válido`,
+      );
+    }
+    if (!Array.isArray(detalle)) {
+      throw new InternalServerErrorException(
+        `El detalle de la cotización ${cotizacion.id} no es válido`,
+      );
+    }
+    const items = detalle.filter((item): item is ItemCotizacionInventario =>
+      this.esItemCotizacionInventario(item),
+    );
+    if (items.length !== detalle.length) {
+      throw new InternalServerErrorException(
+        `El detalle de la cotización ${cotizacion.id} no es válido`,
+      );
+    }
+    return { ...datos, items };
+  }
+
+  private esItemCotizacionInventario(
+    valor: unknown,
+  ): valor is ItemCotizacionInventario {
+    if (typeof valor !== 'object' || valor === null) return false;
+    const item = valor as Record<string, unknown>;
+    return (
+      Number.isInteger(item.productId) &&
+      Number.isInteger(item.variantId) &&
+      typeof item.name === 'string' &&
+      typeof item.sku === 'string' &&
+      typeof item.size === 'string' &&
+      typeof item.variantSku === 'string' &&
+      (item.presentation === 'UNIDAD' || item.presentation === 'CAJA') &&
+      Number.isInteger(item.unitsPerPresentation) &&
+      Number.isInteger(item.quantity) &&
+      typeof item.price === 'number' &&
+      typeof item.discountPercentage === 'number' &&
+      typeof item.discountAmount === 'number' &&
+      typeof item.total === 'number'
+    );
   }
 
   private async resolverVarianteVenta(

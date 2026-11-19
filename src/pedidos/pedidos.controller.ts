@@ -11,6 +11,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   Req,
   UploadedFile,
   UseInterceptors,
@@ -68,6 +69,22 @@ export class PedidosController {
   async obtenerHistorialGeneral(@Req() request: RequestConUsuario) {
     const historial = await this.pedidosService.obtenerHistorialGeneral();
     return historial.filter((item) => this.puedeAcceder(item, request.user));
+  }
+
+  @Get('notas-venta')
+  @Roles('ADMIN', 'DISENADOR', 'DISEÑADOR')
+  async obtenerNotasVenta(
+    @Query('cursor') cursor?: string,
+    @Query('nombre') nombre?: string,
+  ) {
+    const cursorNumerico = cursor === undefined ? undefined : Number(cursor);
+    return this.notasVentaService.obtenerPagina(cursorNumerico, nombre);
+  }
+
+  @Get('notas-venta/:id')
+  @Roles('ADMIN', 'DISENADOR', 'DISEÑADOR')
+  async obtenerNotaVenta(@Param('id', ParseIntPipe) id: number) {
+    return this.notasVentaService.obtenerPorId(id);
   }
 
   @Post('nota-venta')

@@ -151,6 +151,14 @@ describe('InventarioService', () => {
       'utf8',
     );
     await client.executeMultiple(movementDescriptionMigration);
+    const quotationMigration = await readFile(
+      resolve(
+        __dirname,
+        '../../migrations/20261119034158_breezy_ulik/migration.sql',
+      ),
+      'utf8',
+    );
+    await client.executeMultiple(quotationMigration);
     const migratedProduct = await client.execute(
       `SELECT p.categoria_id, c.nombre AS categoria
        FROM productos_inventario p
@@ -255,6 +263,66 @@ describe('InventarioService', () => {
       category: 'Prueba',
     });
     expect(producto.variants[0].barcode).toMatch(/^pp-u-\d{4}$/);
+    const cotizacion = await service.crearCotizacion(
+      {
+        contactoNombre: 'Contacto de prueba',
+        contactoTelefono: '0991111111',
+        items: [
+          {
+            varianteId: producto.variants[0].id,
+            cantidad: 2,
+            presentacion: 'UNIDAD',
+          },
+        ],
+      },
+      admin,
+    );
+    expect(cotizacion).toMatchObject({
+      clienteId: null,
+      contactoNombre: 'Contacto de prueba',
+      contactoTelefono: '0991111111',
+      estado: 'PENDIENTE',
+      total: 5,
+    });
+    expect(cotizacion.items).toMatchObject([
+      {
+        productId: producto.id,
+        variantId: producto.variants[0].id,
+        presentation: 'UNIDAD',
+        quantity: 2,
+        price: 2.5,
+      },
+    ]);
+    expect(
+      (await service.obtenerProductos()).find((item) => item.id === producto.id)
+        ?.stock,
+    ).toBe(producto.stock);
+    expect((await service.obtenerCotizaciones()).map(({ id }) => id)).toContain(
+      cotizacion.id,
+    );
+    const cotizacionCancelada = await service.cancelarCotizacion(cotizacion.id);
+    expect(cotizacionCancelada.estado).toBe('CANCELADA');
+    await expect(service.cancelarCotizacion(cotizacion.id)).rejects.toThrow(
+      'Solo se pueden cancelar cotizaciones pendientes',
+    );
+    const cotizacionReactivada = await service.reactivarCotizacion(
+      cotizacion.id,
+    );
+    expect(cotizacionReactivada.estado).toBe('PENDIENTE');
+    await expect(service.reactivarCotizacion(cotizacion.id)).rejects.toThrow(
+      'Solo se pueden reactivar cotizaciones canceladas',
+    );
+    await expect(service.eliminarCotizacion(cotizacion.id)).rejects.toThrow(
+      'Solo se pueden eliminar cotizaciones canceladas',
+    );
+    await service.cancelarCotizacion(cotizacion.id);
+    await expect(service.eliminarCotizacion(cotizacion.id)).resolves.toEqual({
+      id: cotizacion.id,
+      eliminado: true,
+    });
+    await expect(service.eliminarCotizacion(cotizacion.id)).rejects.toThrow(
+      'Cotización no encontrada',
+    );
     const categorias = await service.obtenerCategorias();
     const categoriaPrenda =
       categorias.find((item) => item.nombre === 'Prenda') ??
@@ -914,7 +982,7 @@ describe('InventarioService', () => {
       ),
     ).toMatchObject({ id: normal.id, rol: 'NORMAL' });
     await expect(service.eliminarUsuario(admin.id, -1)).rejects.toThrow(
-      'No se puede eliminar un usuario con ventas o movimientos registrados',
+      'No se puede eliminar un usuario con ventas, movimientos o cotizaciones registradas',
     );
     await expect(service.eliminarUsuario(normal.id, -1)).resolves.toMatchObject(
       {
@@ -922,5 +990,100 @@ describe('InventarioService', () => {
         eliminado: true,
       },
     );
+    const quoteOwner = await service.crearUsuario({
+      username: 'usuario-con-cotizacion',
+      password: 'test-password-123',
+      rol: 'NORMAL',
+    });
+    await service.crearCotizacion(
+      {
+        contactoNombre: 'Contacto',
+        contactoTelefono: '0991111111',
+        items: [{ varianteId: producto.variants[0].id, cantidad: 1 }],
+      },
+      quoteOwner,
+    );
+    await expect(service.eliminarUsuario(quoteOwner.id, -1)).rejects.toThrow(
+      'No se puede eliminar un usuario con ventas, movimientos o cotizaciones registradas',
+    );
+
+    const cotizacionParaVenta = await service.crearCotizacion(
+      {
+        contactoNombre: 'Contacto para venta',
+        contactoTelefono: '0992222222',
+        items: [
+          {
+            varianteId: producto.variants[0].id,
+            cantidad: 1,
+          },
+        ],
+      },
+      admin,
+    );
+    const stockAntesDeConvertir = (await service.obtenerProductos()).find(
+      (item) => item.id === producto.id,
+    )!.stock;
+    await expect(
+      service.crearVenta(
+        {
+          clienteId: cliente.id,
+          metodoPago: 'Efectivo',
+          cotizacionId: cotizacionParaVenta.id,
+          totalConfirmado: cotizacionParaVenta.total + 0.01,
+          items: [{ varianteId: producto.variants[0].id, cantidad: 1 }],
+        },
+        admin,
+      ),
+    ).rejects.toThrow('Los precios cambiaron');
+    expect(
+      (await service.obtenerCotizaciones()).find(
+        (item) => item.id === cotizacionParaVenta.id,
+      )?.estado,
+    ).toBe('PENDIENTE');
+    expect(
+      (await service.obtenerProductos()).find((item) => item.id === producto.id)
+        ?.stock,
+    ).toBe(stockAntesDeConvertir);
+
+    const ventaDeCotizacion = await service.crearVenta(
+      {
+        clienteId: cliente.id,
+        metodoPago: 'Efectivo',
+        cotizacionId: cotizacionParaVenta.id,
+        totalConfirmado: cotizacionParaVenta.total,
+        items: [{ varianteId: producto.variants[0].id, cantidad: 1 }],
+      },
+      admin,
+    );
+    expect(
+      (await service.obtenerCotizaciones()).find(
+        (item) => item.id === cotizacionParaVenta.id,
+      ),
+    ).toMatchObject({
+      estado: 'CONVERTIDA',
+      ventaId: Number(ventaDeCotizacion.id.slice(2)),
+      clienteId: cliente.id,
+    });
+    await expect(
+      service.eliminarCotizacion(cotizacionParaVenta.id),
+    ).rejects.toThrow('Solo se pueden eliminar cotizaciones canceladas');
+    await expect(
+      service.crearVenta(
+        {
+          clienteId: cliente.id,
+          metodoPago: 'Efectivo',
+          cotizacionId: cotizacionParaVenta.id,
+          totalConfirmado: cotizacionParaVenta.total,
+          items: [{ varianteId: producto.variants[0].id, cantidad: 1 }],
+        },
+        admin,
+      ),
+    ).rejects.toThrow('La cotización ya no está pendiente');
+    await service.revertirVenta(Number(ventaDeCotizacion.id.slice(2)), admin);
+    expect(
+      (await service.obtenerCotizaciones()).find(
+        (item) => item.id === cotizacionParaVenta.id,
+      )?.estado,
+    ).toBe('PENDIENTE');
   });
 });

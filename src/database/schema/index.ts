@@ -171,6 +171,39 @@ export const itemsVentaInventario = sqliteTable('items_venta_inventario', {
   total: real('total').notNull(),
 });
 
+export const cotizacionesInventario = sqliteTable(
+  'cotizaciones_inventario',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    usuarioId: integer('usuario_id')
+      .notNull()
+      .references(() => usuariosInventario.id),
+    clienteId: integer('cliente_id').references(() => clientes.id, {
+      onDelete: 'set null',
+    }),
+    contactoNombre: text('contacto_nombre').notNull(),
+    contactoTelefono: text('contacto_telefono').notNull(),
+    estado: text('estado').notNull().default('PENDIENTE'),
+    itemsJson: text('items_json').notNull(),
+    subtotal: real('subtotal').notNull(),
+    descuentoPorcentaje: real('descuento_porcentaje').notNull().default(0),
+    descuentoMonto: real('descuento_monto').notNull().default(0),
+    total: real('total').notNull(),
+    ventaId: integer('venta_id').references(() => ventasInventario.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: integer('updated_at', { mode: 'timestamp' })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('uq_cotizaciones_inventario_venta').on(table.ventaId),
+  ],
+);
+
 export const movimientosInventario = sqliteTable('movimientos_inventario', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   productoId: integer('producto_id')

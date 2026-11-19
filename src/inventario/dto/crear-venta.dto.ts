@@ -44,6 +44,17 @@ export class CrearVentaDto {
   @IsPositive()
   clienteId!: number;
 
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  cotizacionId?: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(2147483647)
+  totalConfirmado?: number;
+
   @IsIn(['Efectivo', 'Transferencia', 'Tarjeta', 'Crédito'])
   metodoPago!: string;
 

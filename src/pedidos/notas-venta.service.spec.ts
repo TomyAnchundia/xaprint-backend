@@ -135,4 +135,72 @@ describe('NotasVentaService', () => {
 
     expect(nota.pedidos.map((pedido) => pedido.pedidoId)).toEqual([1, 2, 5, 6]);
   });
+
+  it('lists persisted notes without creating new serials', async () => {
+    const cantidadAntes = await client.execute(
+      'SELECT COUNT(*) AS cantidad FROM notas_venta',
+    );
+    const pagina = await service.obtenerPagina();
+    const detalle = await service.obtenerPorId(3);
+    const cantidadDespues = await client.execute(
+      'SELECT COUNT(*) AS cantidad FROM notas_venta',
+    );
+
+    expect(Number(cantidadAntes.rows[0]?.cantidad)).toBe(3);
+    expect(Number(cantidadDespues.rows[0]?.cantidad)).toBe(3);
+    expect(pagina.notas).toHaveLength(3);
+    expect(pagina.siguienteCursor).toBeNull();
+    expect(pagina.notas[0]).toMatchObject({
+      numero: '000003',
+      cliente: { nombre: 'Tomy Anchundia' },
+      total: 28.75,
+    });
+    expect(pagina.notas[0]).not.toHaveProperty('pedidos');
+    expect(detalle).toMatchObject({
+      numero: '000003',
+      cliente: { nombre: 'Tomy Anchundia' },
+      pedidos: [
+        { pedidoId: 1, valor: 10.25 },
+        { pedidoId: 2, valor: 5.5 },
+        { pedidoId: 5, valor: 7 },
+        { pedidoId: 6, valor: 6 },
+      ],
+      total: 28.75,
+    });
+
+    const siguiente = await service.emitir(
+      [1],
+      '35fef671-8216-4bdb-93da-1d3e2bab0492',
+    );
+    expect(siguiente.numero).toBe('000004');
+  });
+
+  it('paginates by cursor and searches notes by client name', async () => {
+    for (let indice = 0; indice < 11; indice += 1) {
+      await service.emitir([1], `paginacion-${indice}`);
+    }
+
+    const primeraPagina = await service.obtenerPagina();
+    expect(primeraPagina.notas).toHaveLength(10);
+    expect(primeraPagina.notas[0]?.numero).toBe('000015');
+    expect(primeraPagina.siguienteCursor).toBe(6);
+
+    const segundaPagina = await service.obtenerPagina(
+      primeraPagina.siguienteCursor ?? undefined,
+    );
+    expect(segundaPagina.notas).toHaveLength(5);
+    expect(segundaPagina.notas.at(-1)?.numero).toBe('000001');
+    expect(segundaPagina.siguienteCursor).toBeNull();
+
+    const notasDeTomy = await service.obtenerPagina(undefined, 'Tomy');
+    expect(notasDeTomy.notas).toHaveLength(10);
+    expect(notasDeTomy.notas.every((nota) => nota.cliente.nombre === 'Tomy Anchundia')).toBe(true);
+
+    const notasDeOtroCliente = await service.obtenerPagina(
+      undefined,
+      'Otro cliente',
+    );
+    expect(notasDeOtroCliente.notas).toHaveLength(0);
+    expect(notasDeOtroCliente.siguienteCursor).toBeNull();
+  });
 });

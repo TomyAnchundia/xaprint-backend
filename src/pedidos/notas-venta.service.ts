@@ -2,8 +2,9 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
-import { eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, like, lt, type SQL } from 'drizzle-orm';
 
 import { DatabaseService } from '../database/database.service';
 import { clientes, notasVenta, pedidos } from '../database/schema';
@@ -14,6 +15,7 @@ const ESTADOS_PEDIDO_NOTA_NO_PAGADA = new Set([
   'LISTO',
   'ENTREGADO',
 ]);
+const TAMANO_PAGINA_NOTAS = 10;
 
 export interface NotaVentaDetalle {
   pedidoId: number;
@@ -34,6 +36,21 @@ export interface NotaVentaRespuesta {
   total: number;
 }
 
+export interface NotaVentaResumen {
+  numero: string;
+  fecha: Date;
+  cliente: {
+    id: number;
+    nombre: string;
+  };
+  total: number;
+}
+
+export interface PaginaNotasVenta {
+  notas: NotaVentaResumen[];
+  siguienteCursor: number | null;
+}
+
 @Injectable()
 export class NotasVentaService {
   private colaEmisiones = Promise.resolve();
@@ -52,6 +69,71 @@ export class NotasVentaService {
     idempotencyKey: string,
   ): Promise<NotaVentaRespuesta> {
     return this.encolarEmision(pedidoIds, idempotencyKey, true);
+  }
+
+  async obtenerPagina(
+    cursor?: number,
+    nombre?: string,
+  ): Promise<PaginaNotasVenta> {
+    if (
+      cursor !== undefined &&
+      (!Number.isSafeInteger(cursor) || cursor <= 0)
+    ) {
+      throw new BadRequestException('El cursor del historial no es válido.');
+    }
+
+    const termino = nombre?.trim();
+    if (termino && termino.length > 100) {
+      throw new BadRequestException(
+        'La búsqueda no puede superar los 100 caracteres.',
+      );
+    }
+
+    const filtros: SQL[] = [];
+    if (cursor !== undefined) filtros.push(lt(notasVenta.id, cursor));
+    if (termino) {
+      filtros.push(like(notasVenta.clienteNombre, `%${termino}%`));
+    }
+
+    const resultados = await this.database.db
+      .select({
+        id: notasVenta.id,
+        clienteId: notasVenta.clienteId,
+        clienteNombre: notasVenta.clienteNombre,
+        total: notasVenta.total,
+        createdAt: notasVenta.createdAt,
+      })
+      .from(notasVenta)
+      .where(and(...filtros))
+      .orderBy(desc(notasVenta.id))
+      .limit(TAMANO_PAGINA_NOTAS + 1);
+
+    const hayMas = resultados.length > TAMANO_PAGINA_NOTAS;
+    const notasPagina = resultados.slice(0, TAMANO_PAGINA_NOTAS);
+    const ultimaNota = notasPagina.at(-1);
+    return {
+      notas: notasPagina.map((nota) => ({
+        numero: String(nota.id).padStart(6, '0'),
+        fecha: nota.createdAt,
+        cliente: {
+          id: nota.clienteId,
+          nombre: nota.clienteNombre,
+        },
+        total: nota.total,
+      })),
+      siguienteCursor: hayMas ? (ultimaNota?.id ?? null) : null,
+    };
+  }
+
+  async obtenerPorId(id: number): Promise<NotaVentaRespuesta> {
+    const notas = await this.database.db
+      .select()
+      .from(notasVenta)
+      .where(eq(notasVenta.id, id))
+      .limit(1);
+    const nota = notas[0];
+    if (!nota) throw new NotFoundException('Nota de venta no encontrada.');
+    return this.formatearNota(nota);
   }
 
   private encolarEmision(
@@ -92,7 +174,9 @@ export class NotasVentaService {
         .where(eq(notasVenta.claveSolicitud, idempotencyKey))
         .limit(1);
       if (notaExistente[0]) {
-        return this.formatearNota(notaExistente[0], pedidoIds);
+        const nota = this.formatearNota(notaExistente[0]);
+        this.validarPedidosSolicitados(nota.pedidos, pedidoIds);
+        return nota;
       }
 
       const registros = await tx
@@ -204,15 +288,16 @@ export class NotasVentaService {
           'No se pudo asignar el número de la nota de venta. Inténtalo de nuevo.',
         );
       }
-      return this.formatearNota(notaCreada, pedidoIds);
+      const nota = this.formatearNota(notaCreada);
+      this.validarPedidosSolicitados(nota.pedidos, pedidoIds);
+      return nota;
     });
   }
 
-  private formatearNota(
-    nota: typeof notasVenta.$inferSelect,
+  private validarPedidosSolicitados(
+    detalle: NotaVentaDetalle[],
     pedidoIds: number[],
-  ): NotaVentaRespuesta {
-    const detalle = JSON.parse(nota.pedidosJson) as NotaVentaDetalle[];
+  ): void {
     const idsGuardados = detalle
       .map((item) => item.pedidoId)
       .sort((a, b) => a - b);
@@ -225,7 +310,12 @@ export class NotasVentaService {
         'La clave de solicitud ya fue utilizada para otra selección de pedidos.',
       );
     }
+  }
 
+  private formatearNota(
+    nota: typeof notasVenta.$inferSelect,
+  ): NotaVentaRespuesta {
+    const detalle = JSON.parse(nota.pedidosJson) as NotaVentaDetalle[];
     return {
       numero: String(nota.id).padStart(6, '0'),
       fecha: nota.createdAt,

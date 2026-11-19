@@ -28,6 +28,7 @@ import { CrearTallaDto } from './dto/crear-talla.dto';
 import { CrearColorDto } from './dto/crear-color.dto';
 import { CrearUsuarioInventarioDto } from './dto/crear-usuario-inventario.dto';
 import { CrearVentaDto } from './dto/crear-venta.dto';
+import { CrearCotizacionDto } from './dto/crear-cotizacion.dto';
 import { LoginInventarioDto } from './dto/login-inventario.dto';
 import { RegistrarMovimientoDto } from './dto/registrar-movimiento.dto';
 import { InventarioAuthGuard } from './inventario-auth.guard';
@@ -138,7 +139,9 @@ export class InventarioController {
     @Param('id', ParseIntPipe) id: number,
     @Body() datos: CrearTallaDto,
   ) {
-    return this.notificarCambio(this.inventarioService.actualizarTalla(id, datos));
+    return this.notificarCambio(
+      this.inventarioService.actualizarTalla(id, datos),
+    );
   }
 
   @Delete('tallas/:id')
@@ -169,7 +172,9 @@ export class InventarioController {
     @Param('id', ParseIntPipe) id: number,
     @Body() datos: CrearColorDto,
   ) {
-    return this.notificarCambio(this.inventarioService.actualizarColor(id, datos));
+    return this.notificarCambio(
+      this.inventarioService.actualizarColor(id, datos),
+    );
   }
 
   @Delete('colores/:id')
@@ -305,6 +310,44 @@ export class InventarioController {
     @Query('hasta') hasta?: string,
   ) {
     return this.inventarioService.obtenerEstadisticas(desde, hasta);
+  }
+
+  @Get('cotizaciones')
+  @UseGuards(InventarioAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'NORMAL')
+  obtenerCotizaciones() {
+    return this.inventarioService.obtenerCotizaciones();
+  }
+
+  @Post('cotizaciones')
+  @UseGuards(InventarioAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'NORMAL')
+  crearCotizacion(
+    @Body() datos: CrearCotizacionDto,
+    @Req() request: RequestConUsuarioInventario,
+  ) {
+    return this.inventarioService.crearCotizacion(datos, request.user);
+  }
+
+  @Patch('cotizaciones/:id/cancelar')
+  @UseGuards(InventarioAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'NORMAL')
+  cancelarCotizacion(@Param('id', ParseIntPipe) id: number) {
+    return this.inventarioService.cancelarCotizacion(id);
+  }
+
+  @Patch('cotizaciones/:id/reactivar')
+  @UseGuards(InventarioAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'NORMAL')
+  reactivarCotizacion(@Param('id', ParseIntPipe) id: number) {
+    return this.inventarioService.reactivarCotizacion(id);
+  }
+
+  @Delete('cotizaciones/:id')
+  @UseGuards(InventarioAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'NORMAL')
+  eliminarCotizacion(@Param('id', ParseIntPipe) id: number) {
+    return this.inventarioService.eliminarCotizacion(id);
   }
 
   @Get('ventas')
